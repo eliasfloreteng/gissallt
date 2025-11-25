@@ -13,7 +13,6 @@ interface SummaryScreenProps {
 
 export function SummaryScreen({ session, onHome, onRetry }: SummaryScreenProps) {
   const [showSpoilers, setShowSpoilers] = useState(false)
-  const isSv = session.language === "sv"
 
   return (
     <div className="card-pop p-6 md:p-10 text-center max-w-2xl mx-auto w-full">
@@ -28,17 +27,15 @@ export function SummaryScreen({ session, onHome, onRetry }: SummaryScreenProps) 
           <Trophy className="w-10 h-10 text-black" />
         </div>
         <h2 className="text-6xl font-black text-brand-blue mb-2">{session.score}</h2>
-        <p className="text-gray-500 font-bold text-lg uppercase tracking-wider">{isSv ? "Poäng" : "Points"}</p>
+        <p className="text-gray-500 font-bold text-lg uppercase tracking-wider">Points</p>
       </motion.div>
 
       <div className="space-y-2 mb-8">
         <h3 className="text-2xl font-bold">{session.category}</h3>
         {session.strikes >= 5 ? (
-          <p className="text-red-500 font-bold bg-red-50 inline-block px-3 py-1 rounded-full">
-            {isSv ? "Du åkte ut!" : "Game Over!"}
-          </p>
+          <p className="text-red-500 font-bold bg-red-50 inline-block px-3 py-1 rounded-full">Game Over!</p>
         ) : (
-          <p className="text-gray-400 font-medium">{isSv ? "Bra jobbat!" : "Well done!"}</p>
+          <p className="text-gray-400 font-medium">Well done!</p>
         )}
       </div>
 
@@ -49,34 +46,32 @@ export function SummaryScreen({ session, onHome, onRetry }: SummaryScreenProps) 
           className="btn-primary bg-brand-pink text-white hover:bg-pink-600 border-pink-900 flex flex-col items-center justify-center gap-1 py-4"
         >
           <RotateCcw className="w-6 h-6" />
-          <span className="text-sm">{isSv ? "Försök Igen" : "Try Again"}</span>
+          <span className="text-sm">Try Again</span>
         </button>
         <button
           onClick={onHome}
           className="btn-primary bg-white text-black hover:bg-gray-50 flex flex-col items-center justify-center gap-1 py-4"
         >
           <Home className="w-6 h-6" />
-          <span className="text-sm">{isSv ? "Meny" : "Menu"}</span>
+          <span className="text-sm">Menu</span>
         </button>
       </div>
 
       {/* List Review */}
       <div className="text-left border-t-2 border-gray-100 pt-6">
         <div className="flex justify-between items-center mb-4">
-          <h4 className="font-bold text-gray-400 text-sm uppercase tracking-wider">
-            {isSv ? "Dina Svar" : "Your Answers"}
-          </h4>
+          <h4 className="font-bold text-gray-400 text-sm uppercase tracking-wider">Your Answers</h4>
           <button
             onClick={() => setShowSpoilers(!showSpoilers)}
             className="text-brand-blue text-sm font-bold flex items-center gap-1 hover:underline"
           >
             {showSpoilers ? (
               <>
-                <EyeOff className="w-4 h-4" /> {isSv ? "Dölj" : "Hide"}
+                <EyeOff className="w-4 h-4" /> Hide
               </>
             ) : (
               <>
-                <Eye className="w-4 h-4" /> {isSv ? "Visa" : "Show"}
+                <Eye className="w-4 h-4" /> Show
               </>
             )}
           </button>

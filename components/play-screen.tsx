@@ -43,21 +43,21 @@ export function PlayScreen({ initialSession, onEndGame }: PlayScreenProps) {
     if (items.some((item) => item.toLowerCase() === guess.toLowerCase())) {
       setFeedback({
         type: "info",
-        message: initialSession.language === "sv" ? "Redan tagen!" : "Already listed!",
+        message: "Already listed!",
       })
       setIsChecking(false)
       return
     }
 
     // Call AI
-    const result = await checkGuess(initialSession.category, guess, initialSession.language)
+    const result = await checkGuess(initialSession.category, guess)
 
     if (result.isValid) {
       // Check normalized duplicate
       if (items.some((item) => item.toLowerCase() === result.normalizedName.toLowerCase())) {
         setFeedback({
           type: "info",
-          message: initialSession.language === "sv" ? "Redan tagen!" : "Already listed!",
+          message: "Already listed!",
         })
       } else {
         setItems((prev) => [result.normalizedName, ...prev])
@@ -101,9 +101,7 @@ export function PlayScreen({ initialSession, onEndGame }: PlayScreenProps) {
       {/* Header Stats */}
       <div className="flex justify-between items-end pb-4 border-b-2 border-gray-100">
         <div>
-          <p className="text-sm font-bold text-gray-400 uppercase tracking-wider mb-1">
-            {initialSession.language === "en" ? "Category" : "Kategori"}
-          </p>
+          <p className="text-sm font-bold text-gray-400 uppercase tracking-wider mb-1">Category</p>
           <h2 className="text-3xl md:text-4xl font-black text-brand-blue truncate max-w-[200px] md:max-w-xs">
             {initialSession.category}
           </h2>
@@ -139,7 +137,7 @@ export function PlayScreen({ initialSession, onEndGame }: PlayScreenProps) {
             value={input}
             onChange={(e) => setInput(e.target.value)}
             disabled={strikes >= MAX_STRIKES}
-            placeholder={initialSession.language === "en" ? "Type something..." : "Skriv något..."}
+            placeholder="Type something..."
             className="w-full px-6 py-5 text-2xl font-bold bg-white border-3 border-black rounded-2xl shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] focus:outline-hidden focus:translate-y-[2px] focus:shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] focus:border-brand-blue transition-all placeholder:text-gray-300"
             autoFocus
             autoComplete="off"
@@ -199,7 +197,7 @@ export function PlayScreen({ initialSession, onEndGame }: PlayScreenProps) {
           </AnimatePresence>
           {items.length === 0 && (
             <div className="w-full text-center py-10 text-gray-400 font-bold opacity-50">
-              {initialSession.language === "en" ? "List is empty. Start guessing!" : "Listan är tom. Börja gissa!"}
+              List is empty. Start guessing!
             </div>
           )}
         </div>
@@ -212,7 +210,7 @@ export function PlayScreen({ initialSession, onEndGame }: PlayScreenProps) {
           className="text-gray-400 font-bold hover:text-red-500 transition-colors flex items-center gap-2 text-sm uppercase tracking-widest"
         >
           <Flag className="w-4 h-4" />
-          {initialSession.language === "en" ? "Give Up" : "Ge Upp"}
+          Give Up
         </button>
       </div>
     </div>

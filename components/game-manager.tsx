@@ -11,7 +11,6 @@ export type GameState = "start" | "playing" | "summary"
 export type GameSession = {
   id: string
   category: string
-  language: "en" | "sv"
   items: string[]
   score: number
   date: number
@@ -42,11 +41,10 @@ export function GameManager() {
     }
   }, [history])
 
-  const startGame = (category: string, language: "en" | "sv") => {
+  const startGame = (category: string) => {
     const newSession: GameSession = {
       id: crypto.randomUUID(),
       category,
-      language,
       items: [],
       score: 0,
       date: Date.now(),
@@ -70,8 +68,8 @@ export function GameManager() {
     setCurrentSession(null)
   }
 
-  const retryCategory = (category: string, language: "en" | "sv") => {
-    startGame(category, language)
+  const retryCategory = (category: string) => {
+    startGame(category)
   }
 
   return (
@@ -90,7 +88,11 @@ export function GameManager() {
               exit={{ opacity: 0, scale: 0.9, transition: { duration: 0.2 } }}
               className="w-full"
             >
-              <StartScreen onStart={startGame} history={history} onRetry={retryCategory} />
+              <StartScreen
+                onStart={startGame}
+                history={history}
+                onRetry={retryCategory}
+              />
             </motion.div>
           )}
 
@@ -117,7 +119,7 @@ export function GameManager() {
               <SummaryScreen
                 session={currentSession}
                 onHome={restartGame}
-                onRetry={() => retryCategory(currentSession.category, currentSession.language)}
+                onRetry={() => retryCategory(currentSession.category)}
               />
             </motion.div>
           )}
