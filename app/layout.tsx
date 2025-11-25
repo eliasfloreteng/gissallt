@@ -1,6 +1,7 @@
 import type React from "react"
 import type { Metadata } from "next"
 import { Varela_Round } from "next/font/google"
+import { Analytics } from "@vercel/analytics/next"
 import "./globals.css"
 
 const varela = Varela_Round({
@@ -22,7 +23,10 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body className={varela.className}>{children}</body>
+      <body className={varela.className}>
+        {children}
+        <Analytics />
+      </body>
     </html>
   )
 }
