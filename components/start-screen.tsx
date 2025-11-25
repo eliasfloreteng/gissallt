@@ -46,9 +46,13 @@ export function StartScreen({ onStart, history, onRetry }: StartScreenProps) {
     <div className="flex flex-col gap-8">
       {/* Header */}
       <div className="text-center space-y-4">
-        <motion.div initial={{ y: -20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} className="inline-block">
+        <motion.div
+          initial={{ y: -20, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          className="inline-block"
+        >
           <span className="px-4 py-1.5 rounded-full bg-brand-yellow/30 text-brand-yellow-dark font-bold text-sm tracking-wide uppercase border-2 border-brand-yellow">
-            Infinite Guesser
+            Gissallt
           </span>
         </motion.div>
 
@@ -61,24 +65,33 @@ export function StartScreen({ onStart, history, onRetry }: StartScreenProps) {
               viewBox="0 0 100 10"
               preserveAspectRatio="none"
             >
-              <path d="M0 5 Q 50 10 100 5" stroke="currentColor" strokeWidth="8" fill="none" />
+              <path
+                d="M0 5 Q 50 10 100 5"
+                stroke="currentColor"
+                strokeWidth="8"
+                fill="none"
+              />
             </svg>
           </span>
         </h1>
 
         <p className="text-lg text-gray-600 font-medium max-w-md mx-auto leading-relaxed">
-          Pick a category and guess as many items as you can. How far can you go before striking out?
+          Pick a category and guess as many items as you can. How far can you go
+          before striking out?
         </p>
       </div>
 
       {/* Main Input Card */}
       <div className="card-pop p-2">
-        <form onSubmit={handleSubmit} className="flex flex-col md:flex-row gap-2">
+        <form
+          onSubmit={handleSubmit}
+          className="flex flex-col md:flex-row gap-2"
+        >
           <input
             type="text"
             value={category}
             onChange={(e) => setCategory(e.target.value)}
-            placeholder="Enter a category (e.g. Birds)"
+            placeholder="Enter a category (e.g. Car Brands)"
             className="flex-1 px-6 py-4 text-xl font-bold bg-gray-50 rounded-xl focus:outline-hidden focus:bg-white transition-colors"
             autoFocus
           />
@@ -102,7 +115,12 @@ export function StartScreen({ onStart, history, onRetry }: StartScreenProps) {
         <div className="flex flex-wrap gap-3">
           {loadingSuggestions
             ? // Skeletons
-              [1, 2, 3, 4].map((i) => <div key={i} className="h-10 w-24 bg-gray-200 rounded-xl animate-pulse" />)
+              [1, 2, 3, 4].map((i) => (
+                <div
+                  key={i}
+                  className="h-10 w-24 bg-gray-200 rounded-xl animate-pulse"
+                />
+              ))
             : suggestions.map((sug) => (
                 <button
                   key={sug}
@@ -131,7 +149,8 @@ export function StartScreen({ onStart, history, onRetry }: StartScreenProps) {
                 <div>
                   <h3 className="font-bold text-lg">{game.category}</h3>
                   <p className="text-gray-400 text-sm font-medium">
-                    {game.score} items • {new Date(game.date).toLocaleDateString()}
+                    {game.score} items •{" "}
+                    {new Date(game.date).toLocaleDateString()}
                   </p>
                 </div>
                 <button
