@@ -7,6 +7,7 @@ import { motion } from "framer-motion"
 import { Play, History, Sparkles, ChevronRight } from "lucide-react"
 import { getSuggestions } from "@/app/actions"
 import type { GameSession } from "./game-manager"
+import { GameDetailsDialog } from "./game-details-dialog"
 
 interface StartScreenProps {
   onStart: (category: string) => void
@@ -18,6 +19,8 @@ export function StartScreen({ onStart, history, onRetry }: StartScreenProps) {
   const [category, setCategory] = useState("")
   const [suggestions, setSuggestions] = useState<string[]>([])
   const [loadingSuggestions, setLoadingSuggestions] = useState(false)
+  const [selectedGame, setSelectedGame] = useState<GameSession | null>(null)
+  const [dialogOpen, setDialogOpen] = useState(false)
 
   useEffect(() => {
     let mounted = true
@@ -40,6 +43,11 @@ export function StartScreen({ onStart, history, onRetry }: StartScreenProps) {
     if (category.trim()) {
       onStart(category.trim())
     }
+  }
+
+  const handleGameClick = (game: GameSession) => {
+    setSelectedGame(game)
+    setDialogOpen(true)
   }
 
   return (
@@ -142,9 +150,10 @@ export function StartScreen({ onStart, history, onRetry }: StartScreenProps) {
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {history.slice(0, 4).map((game) => (
-              <div
+              <button
                 key={game.id}
-                className="bg-white p-4 rounded-2xl border-2 border-gray-100 flex justify-between items-center group hover:border-brand-blue transition-colors"
+                onClick={() => handleGameClick(game)}
+                className="bg-white p-4 rounded-2xl border-2 border-gray-100 flex justify-between items-center group hover:border-brand-blue transition-colors cursor-pointer text-left w-full"
               >
                 <div>
                   <h3 className="font-bold text-lg">{game.category}</h3>
@@ -153,17 +162,21 @@ export function StartScreen({ onStart, history, onRetry }: StartScreenProps) {
                     {new Date(game.date).toLocaleDateString()}
                   </p>
                 </div>
-                <button
-                  onClick={() => onRetry(game.category)}
-                  className="p-2 bg-gray-100 rounded-full text-gray-600 group-hover:bg-brand-blue group-hover:text-white transition-colors"
-                >
+                <div className="p-2 bg-gray-100 rounded-full text-gray-600 group-hover:bg-brand-blue group-hover:text-white transition-colors">
                   <ChevronRight className="w-5 h-5" />
-                </button>
-              </div>
+                </div>
+              </button>
             ))}
           </div>
         </div>
       )}
+
+      <GameDetailsDialog
+        game={selectedGame}
+        open={dialogOpen}
+        onOpenChange={setDialogOpen}
+        onStartNewGame={onRetry}
+      />
     </div>
   )
 }
