@@ -3,6 +3,7 @@
 import { generateObject } from "ai"
 import { z } from "zod"
 import { openai, OpenAIResponsesProviderOptions } from "@ai-sdk/openai"
+import { headers } from "next/headers"
 
 const schema = z.object({
   isValid: z.boolean().describe("Whether the item belongs to the category"),
@@ -25,9 +26,18 @@ const schema = z.object({
 })
 
 export async function checkGuess(category: string, guess: string) {
+  const headerList = await headers().catch((e) => {
+    console.error(e)
+    return null
+  })
+  const acceptLanguage = headerList
+    ? headerList.get("Accept-Language") || "en"
+    : "en"
+
   try {
     const prompt = `
       Game: Infinite Guesser.
+      User Accepted Languages: "${acceptLanguage}".
       Category: "${category}".
       User Guess: "${guess}".
 
@@ -36,9 +46,9 @@ export async function checkGuess(category: string, guess: string) {
       Rules:
       1. It must be factually correct.
       2. It must be specific enough (e.g. if category is "Car Brands", "Blue Car" is invalid, "Ford" is valid).
-      3. Respond in the same language as the input.
+      3. Respond in the same language as the category (preferred) or accepted languages.
       4. Return the "normalizedName" formatted nicely (Title Case) in the same language as the input.
-      5. If invalid, provide a short, fun reason in the same language as the input.
+      5. If invalid, provide a short, fun reason in the same language as the category (preferred) or accepted languages.
     `
 
     const { object } = await generateObject({
@@ -70,7 +80,20 @@ export async function checkGuess(category: string, guess: string) {
 }
 
 export async function getSuggestions() {
-  const prompt = `Generate 5 fun, diverse, and popular categories for a guessing game in English. Return just a JSON array of strings.`
+  const headerList = await headers().catch((e) => {
+    console.error(e)
+    return null
+  })
+  const acceptLanguage = headerList
+    ? headerList.get("Accept-Language") || "en"
+    : "en"
+  const languages = acceptLanguage
+    .split(",")
+    .map((lang) => lang.split(";")[0].trim())
+    .join('", "')
+  console.log("Detected accepted languages:", languages)
+
+  const prompt = `Generate 7 fun, diverse, and popular categories for a guessing game where you have to come up with as many items in a specific category as possible. The suggestions can be in any of these languages: "${languages}". Return just a JSON object with the "categories" key as an array of strings. Do NOT include the language in the category name.`
 
   try {
     const { object } = await generateObject({
