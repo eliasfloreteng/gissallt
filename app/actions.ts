@@ -2,7 +2,7 @@
 
 import { generateObject } from "ai"
 import { z } from "zod"
-import { openai } from "@ai-sdk/openai"
+import { anthropic } from "@ai-sdk/anthropic"
 
 const schema = z.object({
   isValid: z.boolean().describe("Whether the item belongs to the category"),
@@ -42,7 +42,7 @@ export async function checkGuess(category: string, guess: string) {
     `
 
     const { object } = await generateObject({
-      model: "anthropic/claude-haiku-4.5",
+      model: anthropic("claude-haiku-4-5"),
       schema,
       prompt,
     })
@@ -67,13 +67,14 @@ export async function getSuggestions() {
 
   try {
     const { object } = await generateObject({
-      model: "anthropic/claude-haiku-4.5",
+      model: anthropic("claude-haiku-4-5"),
       schema: z.object({ categories: z.array(z.string()) }),
       prompt,
       temperature: 1.0,
     })
     return object.categories
   } catch (e) {
+    console.error(e)
     return [
       "Animals",
       "Car Brands",
