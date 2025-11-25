@@ -2,7 +2,7 @@
 
 import { generateObject } from "ai"
 import { z } from "zod"
-import { openai } from "@ai-sdk/openai"
+import { openai, OpenAIResponsesProviderOptions } from "@ai-sdk/openai"
 
 const schema = z.object({
   isValid: z.boolean().describe("Whether the item belongs to the category"),
@@ -47,9 +47,10 @@ export async function checkGuess(category: string, guess: string) {
       prompt,
       providerOptions: {
         openai: {
-          reasoning_effort: "none",
-          verbosity: "low",
-        },
+          reasoningEffort: "none",
+          reasoningSummary: null,
+          textVerbosity: "low",
+        } satisfies OpenAIResponsesProviderOptions,
       },
     })
 
@@ -76,12 +77,12 @@ export async function getSuggestions() {
       model: openai("gpt-5.1"),
       schema: z.object({ categories: z.array(z.string()) }),
       prompt,
-      temperature: 2.0,
       providerOptions: {
         openai: {
-          reasoning_effort: "none",
-          verbosity: "low",
-        },
+          reasoningEffort: "none",
+          reasoningSummary: null,
+          textVerbosity: "low",
+        } satisfies OpenAIResponsesProviderOptions,
       },
     })
     return object.categories
