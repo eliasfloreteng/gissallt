@@ -4,7 +4,7 @@ import type React from "react"
 
 import { useState, useEffect } from "react"
 import { motion } from "framer-motion"
-import { Play, History, Sparkles, ChevronRight } from "lucide-react"
+import { Play, History, Sparkles, ChevronRight, ChevronDown } from "lucide-react"
 import { getSuggestions } from "@/app/actions"
 import type { GameSession } from "./game-manager"
 import { GameDetailsDialog } from "./game-details-dialog"
@@ -21,6 +21,7 @@ export function StartScreen({ onStart, history, onRetry }: StartScreenProps) {
   const [loadingSuggestions, setLoadingSuggestions] = useState(false)
   const [selectedGame, setSelectedGame] = useState<GameSession | null>(null)
   const [dialogOpen, setDialogOpen] = useState(false)
+  const [showAllHistory, setShowAllHistory] = useState(false)
 
   useEffect(() => {
     let mounted = true
@@ -149,7 +150,7 @@ export function StartScreen({ onStart, history, onRetry }: StartScreenProps) {
             Recent Games
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {history.slice(0, 4).map((game) => (
+            {(showAllHistory ? history : history.slice(0, 4)).map((game) => (
               <button
                 key={game.id}
                 onClick={() => handleGameClick(game)}
@@ -168,6 +169,24 @@ export function StartScreen({ onStart, history, onRetry }: StartScreenProps) {
               </button>
             ))}
           </div>
+          {history.length > 4 && (
+            <button
+              onClick={() => setShowAllHistory(!showAllHistory)}
+              className="w-full mt-3 py-3 px-4 bg-white border-2 border-gray-200 rounded-xl font-bold text-gray-700 hover:border-brand-blue hover:text-brand-blue hover:scale-[1.02] transition-all shadow-sm flex items-center justify-center gap-2"
+            >
+              {showAllHistory ? (
+                <>
+                  Show Less
+                  <ChevronDown className="w-5 h-5 rotate-180 transition-transform" />
+                </>
+              ) : (
+                <>
+                  Show All ({history.length - 4} more)
+                  <ChevronDown className="w-5 h-5 transition-transform" />
+                </>
+              )}
+            </button>
+          )}
         </div>
       )}
 
