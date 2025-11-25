@@ -27,7 +27,13 @@ export function GameManager() {
     const saved = localStorage.getItem("infinite-guesser-history")
     if (saved) {
       try {
-        setHistory(JSON.parse(saved))
+        const loadedHistory = JSON.parse(saved)
+        // Deduplicate by ID - keep only the first occurrence of each ID
+        const uniqueHistory = loadedHistory.filter(
+          (session: GameSession, index: number, self: GameSession[]) =>
+            self.findIndex((s) => s.id === session.id) === index
+        )
+        setHistory(uniqueHistory)
       } catch (e) {
         console.error("Failed to load history", e)
       }
@@ -56,9 +62,20 @@ export function GameManager() {
 
   const endGame = (session: GameSession) => {
     setCurrentSession(session)
-    // Add to history if score > 0
+    // Add to history if score > 0 and not already in history
     if (session.score > 0) {
-      setHistory((prev) => [session, ...prev])
+      setHistory((prev) => {
+        // Check if this session ID already exists in history
+        const existingIndex = prev.findIndex((s) => s.id === session.id)
+        if (existingIndex >= 0) {
+          // Update existing session
+          const updated = [...prev]
+          updated[existingIndex] = session
+          return updated
+        }
+        // Add new session
+        return [session, ...prev]
+      })
     }
     setGameState("summary")
   }
