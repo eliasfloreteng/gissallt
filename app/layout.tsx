@@ -11,9 +11,8 @@ const varela = Varela_Round({
 })
 
 export const metadata: Metadata = {
-  title: "Infinite Guesser",
+  title: "Gissallt",
   description: "Guess as many things as you can!",
-    generator: 'v0.app'
 }
 
 export default function RootLayout({
