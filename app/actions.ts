@@ -33,6 +33,10 @@ export async function checkGuess(category: string, guess: string) {
   const acceptLanguage = headerList
     ? headerList.get("Accept-Language") || "en"
     : "en"
+  const languages = acceptLanguage
+    .split(",")
+    .map((lang) => lang.split(";")[0].trim())
+    .join('", "')
 
   try {
     const prompt = `
@@ -91,7 +95,6 @@ export async function getSuggestions() {
     .split(",")
     .map((lang) => lang.split(";")[0].trim())
     .join('", "')
-  console.log("Detected accepted languages:", languages)
 
   const prompt = `Generate 7 fun, diverse, and popular categories for a guessing game where you have to come up with as many items in a specific category as possible. The suggestions can be in any of these languages: "${languages}". Return just a JSON object with the "categories" key as an array of strings. Do NOT include the language in the category name.`
 
