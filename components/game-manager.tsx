@@ -15,7 +15,6 @@ export type GameSession = {
   score: number
   date: number
   strikes: number
-  revived?: boolean
 }
 
 export function GameManager() {
