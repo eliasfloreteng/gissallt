@@ -2,10 +2,10 @@
 
 import type React from "react"
 
-import { useState, useRef } from "react"
+import { useState, useRef, useEffect, useCallback } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import { checkGuess } from "@/app/actions"
-import { X, Check, Loader2, Flag } from "lucide-react"
+import { X, Check, Loader2, Flag, Clock, WifiOff } from "lucide-react"
 import type { GameSession } from "./game-manager"
 import { cn } from "@/lib/utils"
 
@@ -15,8 +15,14 @@ interface PlayScreenProps {
 }
 
 type Feedback = {
-  type: "success" | "error" | "info"
+  type: "success" | "error" | "info" | "queued"
   message: string
+}
+
+type QueuedGuess = {
+  id: string
+  guess: string
+  timestamp: number
 }
 
 export function PlayScreen({ initialSession, onEndGame }: PlayScreenProps) {
@@ -26,9 +32,121 @@ export function PlayScreen({ initialSession, onEndGame }: PlayScreenProps) {
   const [input, setInput] = useState("")
   const [isChecking, setIsChecking] = useState(false)
   const [feedback, setFeedback] = useState<Feedback | null>(null)
+  const [queuedGuesses, setQueuedGuesses] = useState<QueuedGuess[]>([])
+  const [isOnline, setIsOnline] = useState(true)
+  const [isProcessingQueue, setIsProcessingQueue] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
 
   const MAX_STRIKES = 5
+  const QUEUE_STORAGE_KEY = `guess-queue-${initialSession.id}`
+
+  // Load queue from localStorage on mount
+  useEffect(() => {
+    const savedQueue = localStorage.getItem(QUEUE_STORAGE_KEY)
+    if (savedQueue) {
+      try {
+        const parsed = JSON.parse(savedQueue) as QueuedGuess[]
+        setQueuedGuesses(parsed)
+      } catch (error) {
+        console.error("Failed to parse saved queue:", error)
+      }
+    }
+  }, [QUEUE_STORAGE_KEY])
+
+  // Save queue to localStorage whenever it changes
+  useEffect(() => {
+    if (queuedGuesses.length > 0) {
+      localStorage.setItem(QUEUE_STORAGE_KEY, JSON.stringify(queuedGuesses))
+    } else {
+      localStorage.removeItem(QUEUE_STORAGE_KEY)
+    }
+  }, [queuedGuesses, QUEUE_STORAGE_KEY])
+
+  // Monitor online/offline status
+  useEffect(() => {
+    const handleOnline = () => setIsOnline(true)
+    const handleOffline = () => setIsOnline(false)
+
+    window.addEventListener("online", handleOnline)
+    window.addEventListener("offline", handleOffline)
+
+    return () => {
+      window.removeEventListener("online", handleOnline)
+      window.removeEventListener("offline", handleOffline)
+    }
+  }, [])
+
+  const processQueue = useCallback(async () => {
+    if (queuedGuesses.length === 0 || isProcessingQueue) return
+
+    setIsProcessingQueue(true)
+
+    // Process one guess at a time from the queue
+    const guessToProcess = queuedGuesses[0]
+
+    try {
+      const result = await checkGuess(initialSession.category, guessToProcess.guess)
+
+      // Remove from queue
+      setQueuedGuesses((prev) => prev.filter((q) => q.id !== guessToProcess.id))
+
+      // Handle result same as regular guess
+      if (result.isValid) {
+        setItems((prev) => {
+          if (prev.some((item) => item.toLowerCase() === result.normalizedName.toLowerCase())) {
+            return prev
+          }
+          setScore((s) => s + 1)
+          setFeedback({ type: "success", message: `Queued: ${result.normalizedName} +1` })
+          return [result.normalizedName, ...prev]
+        })
+      } else {
+        setStrikes((prev) => {
+          const newStrikes = prev + 1
+          if (newStrikes >= MAX_STRIKES) {
+            setTimeout(() => {
+              setItems((currentItems) => {
+                setScore((currentScore) => {
+                  onEndGame({
+                    ...initialSession,
+                    items: currentItems,
+                    score: currentScore,
+                    strikes: newStrikes,
+                  })
+                  return currentScore
+                })
+                return currentItems
+              })
+            }, 1000)
+          }
+          return newStrikes
+        })
+        setFeedback({ type: "error", message: `Queued: ${result.reason || "Invalid"}` })
+      }
+
+      setIsProcessingQueue(false)
+
+      // Continue processing if there are more items in queue
+      setQueuedGuesses((currentQueue) => {
+        if (currentQueue.length > 0) {
+          setTimeout(() => processQueue(), 500)
+        }
+        return currentQueue
+      })
+    } catch (error) {
+      console.error("Failed to process queued guess:", error)
+      // Keep in queue and stop processing for now
+      setIsProcessingQueue(false)
+      setIsOnline(false)
+    }
+  }, [queuedGuesses, isProcessingQueue, initialSession, onEndGame])
+
+  // Process queue when coming back online
+  useEffect(() => {
+    if (isOnline && queuedGuesses.length > 0 && !isProcessingQueue) {
+      processQueue()
+    }
+  }, [isOnline, queuedGuesses.length, isProcessingQueue, processQueue])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -49,38 +167,64 @@ export function PlayScreen({ initialSession, onEndGame }: PlayScreenProps) {
       return
     }
 
-    // Call AI
-    const result = await checkGuess(initialSession.category, guess)
-
-    if (result.isValid) {
-      // Check normalized duplicate
-      if (items.some((item) => item.toLowerCase() === result.normalizedName.toLowerCase())) {
-        setFeedback({
-          type: "info",
-          message: "Already listed!",
-        })
-      } else {
-        setItems((prev) => [result.normalizedName, ...prev])
-        setScore((prev) => prev + 1)
-        setFeedback({ type: "success", message: "+1" })
-      }
-    } else {
-      setStrikes((prev) => {
-        const newStrikes = prev + 1
-        if (newStrikes >= MAX_STRIKES) {
-          // Delay ending slightly to show the strike
-          setTimeout(() => {
-            onEndGame({
-              ...initialSession,
-              items: [...items], // Include current items
-              score: score, // Include current score
-              strikes: newStrikes,
-            })
-          }, 1000)
-        }
-        return newStrikes
+    // Check if already in queue
+    if (queuedGuesses.some((q) => q.guess.toLowerCase() === guess.toLowerCase())) {
+      setFeedback({
+        type: "info",
+        message: "Already in queue!",
       })
-      setFeedback({ type: "error", message: result.reason || "Invalid" })
+      setIsChecking(false)
+      return
+    }
+
+    try {
+      // Call AI
+      const result = await checkGuess(initialSession.category, guess)
+
+      if (result.isValid) {
+        // Check normalized duplicate
+        if (items.some((item) => item.toLowerCase() === result.normalizedName.toLowerCase())) {
+          setFeedback({
+            type: "info",
+            message: "Already listed!",
+          })
+        } else {
+          setItems((prev) => [result.normalizedName, ...prev])
+          setScore((prev) => prev + 1)
+          setFeedback({ type: "success", message: "+1" })
+        }
+      } else {
+        setStrikes((prev) => {
+          const newStrikes = prev + 1
+          if (newStrikes >= MAX_STRIKES) {
+            // Delay ending slightly to show the strike
+            setTimeout(() => {
+              onEndGame({
+                ...initialSession,
+                items: [...items], // Include current items
+                score: score, // Include current score
+                strikes: newStrikes,
+              })
+            }, 1000)
+          }
+          return newStrikes
+        })
+        setFeedback({ type: "error", message: result.reason || "Invalid" })
+      }
+    } catch (error) {
+      // Network error - add to queue
+      console.error("Network error, queueing guess:", error)
+      const queuedGuess: QueuedGuess = {
+        id: `${Date.now()}-${Math.random()}`,
+        guess,
+        timestamp: Date.now(),
+      }
+      setQueuedGuesses((prev) => [...prev, queuedGuess])
+      setFeedback({
+        type: "queued",
+        message: "Queued (no connection)",
+      })
+      setIsOnline(false)
     }
 
     setIsChecking(false)
@@ -164,19 +308,78 @@ export function PlayScreen({ initialSession, onEndGame }: PlayScreenProps) {
                   ? "bg-brand-green text-white"
                   : feedback.type === "error"
                     ? "bg-red-500 text-white"
-                    : "bg-brand-yellow text-black",
+                    : feedback.type === "queued"
+                      ? "bg-orange-500 text-white"
+                      : "bg-brand-yellow text-black",
               )}
             >
               {feedback.type === "success" && <Check className="w-4 h-4" />}
               {feedback.type === "error" && <X className="w-4 h-4" />}
+              {feedback.type === "queued" && <Clock className="w-4 h-4" />}
               {feedback.message}
             </motion.div>
           )}
         </AnimatePresence>
       </div>
 
-      {/* List */}
+      {/* Network Status & Queue Info */}
+      {(!isOnline || queuedGuesses.length > 0) && (
+        <div className="flex items-center justify-between gap-3 py-2 px-4 bg-orange-50 border-2 border-orange-200 rounded-lg">
+          <div className="flex items-center gap-2">
+            <WifiOff className="w-4 h-4 text-orange-600" />
+            <span className="text-sm font-bold text-orange-700">
+              {!isOnline && "Offline - "}
+              {queuedGuesses.length > 0 && `${queuedGuesses.length} message${queuedGuesses.length > 1 ? "s" : ""} queued`}
+              {isProcessingQueue && " - Processing..."}
+            </span>
+          </div>
+          {queuedGuesses.length > 0 && !isProcessingQueue && (
+            <button
+              onClick={() => {
+                setIsOnline(true)
+                processQueue()
+              }}
+              className="text-xs font-bold text-orange-700 hover:text-orange-900 underline"
+            >
+              Retry Now
+            </button>
+          )}
+        </div>
+      )}
+
+      {/* Queued Guesses */}
+      {queuedGuesses.length > 0 && (
+        <div className="space-y-2">
+          <h3 className="text-xs font-bold text-orange-600 uppercase tracking-wider">Queued Messages</h3>
+          <div className="flex flex-wrap gap-3 content-start">
+            <AnimatePresence initial={false} mode="popLayout">
+              {queuedGuesses.map((queuedGuess, i) => (
+                <motion.div
+                  key={queuedGuess.id}
+                  layout
+                  initial={{ scale: 0, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  exit={{ scale: 0, opacity: 0 }}
+                  className="px-4 py-2 bg-orange-100 border-2 border-dashed border-orange-300 rounded-xl font-bold shadow-sm flex items-center gap-2 opacity-75"
+                  style={{
+                    rotate: i % 2 === 0 ? -1 : 1,
+                    zIndex: queuedGuesses.length - i,
+                  }}
+                >
+                  <Clock className="w-3 h-3 text-orange-600 animate-pulse" />
+                  <span className="text-orange-800">{queuedGuess.guess}</span>
+                </motion.div>
+              ))}
+            </AnimatePresence>
+          </div>
+        </div>
+      )}
+
+      {/* Validated Items List */}
       <div className="flex-1 min-h-[200px] mt-4">
+        {items.length > 0 && (
+          <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">Validated</h3>
+        )}
         <div className="flex flex-wrap gap-3 content-start">
           <AnimatePresence initial={false} mode="popLayout">
             {items.map((item, i) => (
@@ -195,7 +398,7 @@ export function PlayScreen({ initialSession, onEndGame }: PlayScreenProps) {
               </motion.div>
             ))}
           </AnimatePresence>
-          {items.length === 0 && (
+          {items.length === 0 && queuedGuesses.length === 0 && (
             <div className="w-full text-center py-10 text-gray-400 font-bold opacity-50">
               List is empty. Start guessing!
             </div>
