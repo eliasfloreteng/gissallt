@@ -26,6 +26,8 @@ export function PlayScreen({ initialSession, onEndGame }: PlayScreenProps) {
   const [input, setInput] = useState("")
   const [isChecking, setIsChecking] = useState(false)
   const [feedback, setFeedback] = useState<Feedback | null>(null)
+  const [showReviveDialog, setShowReviveDialog] = useState(false)
+  const [revived, setRevived] = useState(initialSession.revived || false)
   const inputRef = useRef<HTMLInputElement>(null)
 
   const MAX_STRIKES = 5
@@ -67,14 +69,20 @@ export function PlayScreen({ initialSession, onEndGame }: PlayScreenProps) {
     } else {
       setStrikes((prev) => {
         const newStrikes = prev + 1
-        if (newStrikes >= MAX_STRIKES) {
-          // Delay ending slightly to show the strike
+        if (newStrikes >= MAX_STRIKES && !revived) {
+          // Show revive dialog instead of ending immediately
+          setTimeout(() => {
+            setShowReviveDialog(true)
+          }, 1000)
+        } else if (newStrikes >= MAX_STRIKES && revived) {
+          // Already revived once, end the game
           setTimeout(() => {
             onEndGame({
               ...initialSession,
               items: [...items], // Include current items
               score: score, // Include current score
               strikes: newStrikes,
+              revived: true,
             })
           }, 1000)
         }
@@ -93,6 +101,25 @@ export function PlayScreen({ initialSession, onEndGame }: PlayScreenProps) {
       items,
       score,
       strikes,
+      revived,
+    })
+  }
+
+  const handleRevive = () => {
+    setStrikes(0)
+    setRevived(true)
+    setShowReviveDialog(false)
+    inputRef.current?.focus()
+  }
+
+  const handleDeclineRevive = () => {
+    setShowReviveDialog(false)
+    onEndGame({
+      ...initialSession,
+      items,
+      score,
+      strikes,
+      revived: false,
     })
   }
 
@@ -136,7 +163,7 @@ export function PlayScreen({ initialSession, onEndGame }: PlayScreenProps) {
             type="text"
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            disabled={strikes >= MAX_STRIKES}
+            disabled={strikes >= MAX_STRIKES || showReviveDialog}
             placeholder="Type something..."
             className="w-full px-6 py-5 text-2xl font-bold bg-white border-3 border-black rounded-2xl shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] focus:outline-hidden focus:translate-y-[2px] focus:shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] focus:border-brand-blue transition-all placeholder:text-gray-300"
             autoFocus
@@ -174,6 +201,46 @@ export function PlayScreen({ initialSession, onEndGame }: PlayScreenProps) {
           )}
         </AnimatePresence>
       </div>
+
+      {/* Revive Dialog */}
+      <AnimatePresence>
+        {showReviveDialog && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
+          >
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="bg-white rounded-2xl p-8 max-w-md w-full border-4 border-black shadow-[8px_8px_0px_0px_rgba(0,0,0,1)]"
+            >
+              <div className="text-center mb-6">
+                <h3 className="text-3xl font-black text-brand-blue mb-2">Continue?</h3>
+                <p className="text-gray-600 font-bold">
+                  You've used all your strikes! Would you like to revive and keep playing?
+                </p>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <button
+                  onClick={handleRevive}
+                  className="btn-primary bg-brand-green text-white hover:bg-green-600 border-green-900 py-4 text-lg font-black"
+                >
+                  Revive!
+                </button>
+                <button
+                  onClick={handleDeclineRevive}
+                  className="btn-primary bg-red-500 text-white hover:bg-red-600 border-red-900 py-4 text-lg font-black"
+                >
+                  End Game
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* List */}
       <div className="flex-1 min-h-[200px] mt-4">

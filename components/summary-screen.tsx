@@ -32,11 +32,18 @@ export function SummaryScreen({ session, onHome, onRetry }: SummaryScreenProps) 
 
       <div className="space-y-2 mb-8">
         <h3 className="text-2xl font-bold">{session.category}</h3>
-        {session.strikes >= 5 ? (
-          <p className="text-red-500 font-bold bg-red-50 inline-block px-3 py-1 rounded-full">Game Over!</p>
-        ) : (
-          <p className="text-gray-400 font-medium">Well done!</p>
-        )}
+        <div className="flex flex-col items-center gap-2">
+          {session.strikes >= 5 ? (
+            <p className="text-red-500 font-bold bg-red-50 inline-block px-3 py-1 rounded-full">Game Over!</p>
+          ) : (
+            <p className="text-gray-400 font-medium">Well done!</p>
+          )}
+          {session.revived && (
+            <p className="text-brand-green font-bold bg-green-50 inline-block px-3 py-1 rounded-full text-sm">
+              Used Revive
+            </p>
+          )}
+        </div>
       </div>
 
       {/* Actions */}
