@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { StartScreen } from "./start-screen"
 import { PlayScreen } from "./play-screen"
 import { SummaryScreen } from "./summary-screen"
@@ -17,12 +17,16 @@ export type GameSession = {
   strikes: number
 }
 
+const CURRENT_SESSION_KEY = "infinite-guesser-current-session"
+const SESSION_TIMEOUT_MS = 24 * 60 * 60 * 1000 // 24 hours
+
 export function GameManager() {
   const [gameState, setGameState] = useState<GameState>("start")
   const [currentSession, setCurrentSession] = useState<GameSession | null>(null)
   const [history, setHistory] = useState<GameSession[]>([])
+  const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null)
 
-  // Load history from local storage
+  // Load history and current session from local storage
   useEffect(() => {
     const saved = localStorage.getItem("infinite-guesser-history")
     if (saved) {
@@ -38,6 +42,27 @@ export function GameManager() {
         console.error("Failed to load history", e)
       }
     }
+
+    // Load current session if it exists and is less than 24 hours old
+    const savedSession = localStorage.getItem(CURRENT_SESSION_KEY)
+    if (savedSession) {
+      try {
+        const { session, state, savedAt } = JSON.parse(savedSession)
+        const now = Date.now()
+
+        // Check if the session is still valid (less than 24 hours old)
+        if (now - savedAt < SESSION_TIMEOUT_MS) {
+          setCurrentSession(session)
+          setGameState(state)
+        } else {
+          // Session expired, clear it
+          localStorage.removeItem(CURRENT_SESSION_KEY)
+        }
+      } catch (e) {
+        console.error("Failed to load current session", e)
+        localStorage.removeItem(CURRENT_SESSION_KEY)
+      }
+    }
   }, [])
 
   // Save history when updated
@@ -46,6 +71,35 @@ export function GameManager() {
       localStorage.setItem("infinite-guesser-history", JSON.stringify(history))
     }
   }, [history])
+
+  // Save current session and game state when updated (debounced)
+  useEffect(() => {
+    // Clear any pending save
+    if (saveTimeoutRef.current) {
+      clearTimeout(saveTimeoutRef.current)
+    }
+
+    if (currentSession && gameState === "playing") {
+      // Debounce the save to avoid excessive localStorage writes
+      saveTimeoutRef.current = setTimeout(() => {
+        const sessionData = {
+          session: currentSession,
+          state: gameState,
+          savedAt: Date.now(),
+        }
+        localStorage.setItem(CURRENT_SESSION_KEY, JSON.stringify(sessionData))
+      }, 300) // 300ms debounce
+    } else if (gameState === "start" || gameState === "summary") {
+      // Clear saved session immediately when returning to start or viewing summary
+      localStorage.removeItem(CURRENT_SESSION_KEY)
+    }
+
+    return () => {
+      if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current)
+      }
+    }
+  }, [currentSession, gameState])
 
   const startGame = (category: string) => {
     const newSession: GameSession = {
@@ -121,7 +175,11 @@ export function GameManager() {
               exit={{ opacity: 0, x: -50, transition: { duration: 0.2 } }}
               className="w-full"
             >
-              <PlayScreen initialSession={currentSession} onEndGame={endGame} />
+              <PlayScreen
+                initialSession={currentSession}
+                onEndGame={endGame}
+                onSessionUpdate={setCurrentSession}
+              />
             </motion.div>
           )}
 

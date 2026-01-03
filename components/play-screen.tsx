@@ -12,6 +12,7 @@ import { cn } from "@/lib/utils"
 interface PlayScreenProps {
   initialSession: GameSession
   onEndGame: (session: GameSession) => void
+  onSessionUpdate?: (session: GameSession) => void
 }
 
 type Feedback = {
@@ -31,7 +32,7 @@ type PendingGuess = {
   timestamp: number
 }
 
-export function PlayScreen({ initialSession, onEndGame }: PlayScreenProps) {
+export function PlayScreen({ initialSession, onEndGame, onSessionUpdate }: PlayScreenProps) {
   const [items, setItems] = useState<string[]>(initialSession.items)
   const [strikes, setStrikes] = useState(initialSession.strikes)
   const [score, setScore] = useState(initialSession.score)
@@ -167,6 +168,20 @@ export function PlayScreen({ initialSession, onEndGame }: PlayScreenProps) {
       processQueue()
     }
   }, [isOnline, queuedGuesses.length, isProcessingQueue, processQueue])
+
+  // Update parent session whenever game state changes
+  useEffect(() => {
+    if (onSessionUpdate) {
+      const updatedSession: GameSession = {
+        ...initialSession,
+        items,
+        score,
+        strikes,
+      }
+      onSessionUpdate(updatedSession)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [items, score, strikes])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
