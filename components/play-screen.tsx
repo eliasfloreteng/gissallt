@@ -25,6 +25,12 @@ type QueuedGuess = {
   timestamp: number
 }
 
+type PendingGuess = {
+  id: string
+  guess: string
+  timestamp: number
+}
+
 export function PlayScreen({ initialSession, onEndGame }: PlayScreenProps) {
   const [items, setItems] = useState<string[]>(initialSession.items)
   const [strikes, setStrikes] = useState(initialSession.strikes)
@@ -33,6 +39,7 @@ export function PlayScreen({ initialSession, onEndGame }: PlayScreenProps) {
   const [isChecking, setIsChecking] = useState(false)
   const [feedback, setFeedback] = useState<Feedback | null>(null)
   const [queuedGuesses, setQueuedGuesses] = useState<QueuedGuess[]>([])
+  const [pendingGuesses, setPendingGuesses] = useState<PendingGuess[]>([])
   const [isOnline, setIsOnline] = useState(true)
   const [isProcessingQueue, setIsProcessingQueue] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
@@ -190,9 +197,30 @@ export function PlayScreen({ initialSession, onEndGame }: PlayScreenProps) {
       return
     }
 
+    // Check if already pending
+    if (pendingGuesses.some((p) => p.guess.toLowerCase() === guess.toLowerCase())) {
+      setFeedback({
+        type: "info",
+        message: "Already validating!",
+      })
+      setIsChecking(false)
+      return
+    }
+
+    // Add to pending immediately
+    const pendingGuess: PendingGuess = {
+      id: `${Date.now()}-${Math.random()}`,
+      guess,
+      timestamp: Date.now(),
+    }
+    setPendingGuesses((prev) => [...prev, pendingGuess])
+
     try {
       // Call AI with timeout
       const result = await checkGuessWithTimeout(initialSession.category, guess)
+
+      // Remove from pending
+      setPendingGuesses((prev) => prev.filter((p) => p.id !== pendingGuess.id))
 
       if (result.isValid) {
         // Check normalized duplicate
@@ -225,6 +253,9 @@ export function PlayScreen({ initialSession, onEndGame }: PlayScreenProps) {
         setFeedback({ type: "error", message: result.reason || "Invalid" })
       }
     } catch (error) {
+      // Remove from pending
+      setPendingGuesses((prev) => prev.filter((p) => p.id !== pendingGuess.id))
+
       // Network error or timeout - add to queue
       console.error("Network error/timeout, queueing guess:", error)
       const queuedGuess: QueuedGuess = {
@@ -361,6 +392,34 @@ export function PlayScreen({ initialSession, onEndGame }: PlayScreenProps) {
         </div>
       )}
 
+      {/* Pending Guesses (Being Validated) */}
+      {pendingGuesses.length > 0 && (
+        <div className="space-y-2">
+          <h3 className="text-xs font-bold text-blue-600 uppercase tracking-wider">Validating...</h3>
+          <div className="flex flex-wrap gap-3 content-start">
+            <AnimatePresence initial={false} mode="popLayout">
+              {pendingGuesses.map((pendingGuess, i) => (
+                <motion.div
+                  key={pendingGuess.id}
+                  layout
+                  initial={{ scale: 0, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  exit={{ scale: 0, opacity: 0 }}
+                  className="px-4 py-2 bg-blue-50 border-2 border-blue-300 rounded-xl font-bold shadow-sm flex items-center gap-2"
+                  style={{
+                    rotate: i % 2 === 0 ? -1 : 1,
+                    zIndex: pendingGuesses.length - i,
+                  }}
+                >
+                  <Loader2 className="w-3 h-3 text-blue-600 animate-spin" />
+                  <span className="text-blue-800">{pendingGuess.guess}</span>
+                </motion.div>
+              ))}
+            </AnimatePresence>
+          </div>
+        </div>
+      )}
+
       {/* Queued Guesses */}
       {queuedGuesses.length > 0 && (
         <div className="space-y-2">
@@ -412,7 +471,7 @@ export function PlayScreen({ initialSession, onEndGame }: PlayScreenProps) {
               </motion.div>
             ))}
           </AnimatePresence>
-          {items.length === 0 && queuedGuesses.length === 0 && (
+          {items.length === 0 && queuedGuesses.length === 0 && pendingGuesses.length === 0 && (
             <div className="w-full text-center py-10 text-gray-400 font-bold opacity-50">
               List is empty. Start guessing!
             </div>
