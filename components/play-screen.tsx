@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useState, useRef } from "react"
+import { useState, useRef, useEffect } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import { checkGuess } from "@/app/actions"
 import { X, Check, Loader2, Flag } from "lucide-react"
@@ -12,6 +12,7 @@ import { cn } from "@/lib/utils"
 interface PlayScreenProps {
   initialSession: GameSession
   onEndGame: (session: GameSession) => void
+  onSessionUpdate?: (session: GameSession) => void
 }
 
 type Feedback = {
@@ -19,7 +20,7 @@ type Feedback = {
   message: string
 }
 
-export function PlayScreen({ initialSession, onEndGame }: PlayScreenProps) {
+export function PlayScreen({ initialSession, onEndGame, onSessionUpdate }: PlayScreenProps) {
   const [items, setItems] = useState<string[]>(initialSession.items)
   const [strikes, setStrikes] = useState(initialSession.strikes)
   const [score, setScore] = useState(initialSession.score)
@@ -29,6 +30,20 @@ export function PlayScreen({ initialSession, onEndGame }: PlayScreenProps) {
   const inputRef = useRef<HTMLInputElement>(null)
 
   const MAX_STRIKES = 5
+
+  // Update parent session whenever game state changes
+  useEffect(() => {
+    if (onSessionUpdate) {
+      const updatedSession: GameSession = {
+        ...initialSession,
+        items,
+        score,
+        strikes,
+      }
+      onSessionUpdate(updatedSession)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [items, score, strikes])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
