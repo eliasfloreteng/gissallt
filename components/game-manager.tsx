@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { StartScreen } from "./start-screen"
 import { PlayScreen } from "./play-screen"
 import { SummaryScreen } from "./summary-screen"
@@ -24,6 +24,7 @@ export function GameManager() {
   const [gameState, setGameState] = useState<GameState>("start")
   const [currentSession, setCurrentSession] = useState<GameSession | null>(null)
   const [history, setHistory] = useState<GameSession[]>([])
+  const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null)
 
   // Load history and current session from local storage
   useEffect(() => {
@@ -71,18 +72,32 @@ export function GameManager() {
     }
   }, [history])
 
-  // Save current session and game state when updated
+  // Save current session and game state when updated (debounced)
   useEffect(() => {
+    // Clear any pending save
+    if (saveTimeoutRef.current) {
+      clearTimeout(saveTimeoutRef.current)
+    }
+
     if (currentSession && gameState === "playing") {
-      const sessionData = {
-        session: currentSession,
-        state: gameState,
-        savedAt: Date.now(),
-      }
-      localStorage.setItem(CURRENT_SESSION_KEY, JSON.stringify(sessionData))
+      // Debounce the save to avoid excessive localStorage writes
+      saveTimeoutRef.current = setTimeout(() => {
+        const sessionData = {
+          session: currentSession,
+          state: gameState,
+          savedAt: Date.now(),
+        }
+        localStorage.setItem(CURRENT_SESSION_KEY, JSON.stringify(sessionData))
+      }, 300) // 300ms debounce
     } else if (gameState === "start" || gameState === "summary") {
-      // Clear saved session when returning to start or viewing summary
+      // Clear saved session immediately when returning to start or viewing summary
       localStorage.removeItem(CURRENT_SESSION_KEY)
+    }
+
+    return () => {
+      if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current)
+      }
     }
   }, [currentSession, gameState])
 

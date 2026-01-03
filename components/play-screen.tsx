@@ -42,7 +42,8 @@ export function PlayScreen({ initialSession, onEndGame, onSessionUpdate }: PlayS
       }
       onSessionUpdate(updatedSession)
     }
-  }, [items, score, strikes, initialSession, onSessionUpdate])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [items, score, strikes])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
