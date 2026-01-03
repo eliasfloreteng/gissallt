@@ -4,7 +4,7 @@ import type React from "react"
 
 import { useState, useEffect } from "react"
 import { motion } from "framer-motion"
-import { Play, History, Sparkles, ChevronRight, ChevronDown } from "lucide-react"
+import { Play, History, Sparkles, ChevronRight, ChevronDown, Infinity } from "lucide-react"
 import { getSuggestions } from "@/app/actions"
 import type { GameSession } from "./game-manager"
 import { GameDetailsDialog } from "./game-details-dialog"
@@ -150,24 +150,39 @@ export function StartScreen({ onStart, history, onRetry }: StartScreenProps) {
             Recent Games
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {(showAllHistory ? history : history.slice(0, 4)).map((game) => (
-              <button
-                key={game.id}
-                onClick={() => handleGameClick(game)}
-                className="bg-white p-4 rounded-2xl border-2 border-gray-100 flex justify-between items-center group hover:border-brand-blue transition-colors cursor-pointer text-left w-full"
-              >
-                <div>
-                  <h3 className="font-bold text-lg">{game.category}</h3>
-                  <p className="text-gray-400 text-sm font-medium">
-                    {game.score} items •{" "}
-                    {new Date(game.date).toLocaleDateString()}
-                  </p>
-                </div>
-                <div className="p-2 bg-gray-100 rounded-full text-gray-600 group-hover:bg-brand-blue group-hover:text-white transition-colors">
-                  <ChevronRight className="w-5 h-5" />
-                </div>
-              </button>
-            ))}
+            {(showAllHistory ? history : history.slice(0, 4)).map((game) => {
+              const totalScore = game.score + (game.infiniteModeScore ?? 0)
+              const hasInfiniteScore = game.playedInfiniteMode && (game.infiniteModeScore ?? 0) > 0
+              return (
+                <button
+                  key={game.id}
+                  onClick={() => handleGameClick(game)}
+                  className="bg-white p-4 rounded-2xl border-2 border-gray-100 flex justify-between items-center group hover:border-brand-blue transition-colors cursor-pointer text-left w-full"
+                >
+                  <div>
+                    <h3 className="font-bold text-lg flex items-center gap-2">
+                      {game.category}
+                      {hasInfiniteScore && (
+                        <span className="text-brand-blue">
+                          <Infinity className="w-4 h-4" />
+                        </span>
+                      )}
+                    </h3>
+                    <p className="text-gray-400 text-sm font-medium">
+                      {totalScore} items
+                      {hasInfiniteScore && (
+                        <span className="text-brand-blue"> ({game.score}+{game.infiniteModeScore})</span>
+                      )}
+                      {" • "}
+                      {new Date(game.date).toLocaleDateString()}
+                    </p>
+                  </div>
+                  <div className="p-2 bg-gray-100 rounded-full text-gray-600 group-hover:bg-brand-blue group-hover:text-white transition-colors">
+                    <ChevronRight className="w-5 h-5" />
+                  </div>
+                </button>
+              )
+            })}
           </div>
           {history.length > 4 && (
             <button
