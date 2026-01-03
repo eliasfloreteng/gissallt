@@ -39,6 +39,19 @@ export function PlayScreen({ initialSession, onEndGame }: PlayScreenProps) {
 
   const MAX_STRIKES = 5
   const QUEUE_STORAGE_KEY = `guess-queue-${initialSession.id}`
+  const REQUEST_TIMEOUT = 10000 // 10 seconds timeout
+
+  // Wrapper to add timeout to API calls
+  const checkGuessWithTimeout = useCallback(
+    async (category: string, guess: string) => {
+      const timeoutPromise = new Promise<never>((_, reject) => {
+        setTimeout(() => reject(new Error("Request timeout")), REQUEST_TIMEOUT)
+      })
+
+      return Promise.race([checkGuess(category, guess), timeoutPromise])
+    },
+    [],
+  )
 
   // Load queue from localStorage on mount
   useEffect(() => {
@@ -85,7 +98,7 @@ export function PlayScreen({ initialSession, onEndGame }: PlayScreenProps) {
     const guessToProcess = queuedGuesses[0]
 
     try {
-      const result = await checkGuess(initialSession.category, guessToProcess.guess)
+      const result = await checkGuessWithTimeout(initialSession.category, guessToProcess.guess)
 
       // Remove from queue
       setQueuedGuesses((prev) => prev.filter((q) => q.id !== guessToProcess.id))
@@ -139,7 +152,7 @@ export function PlayScreen({ initialSession, onEndGame }: PlayScreenProps) {
       setIsProcessingQueue(false)
       setIsOnline(false)
     }
-  }, [queuedGuesses, isProcessingQueue, initialSession, onEndGame])
+  }, [queuedGuesses, isProcessingQueue, initialSession, onEndGame, checkGuessWithTimeout])
 
   // Process queue when coming back online
   useEffect(() => {
@@ -150,7 +163,7 @@ export function PlayScreen({ initialSession, onEndGame }: PlayScreenProps) {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!input.trim() || isChecking) return
+    if (!input.trim()) return
 
     const guess = input.trim()
     setInput("") // Clear immediately for better flow
@@ -178,8 +191,8 @@ export function PlayScreen({ initialSession, onEndGame }: PlayScreenProps) {
     }
 
     try {
-      // Call AI
-      const result = await checkGuess(initialSession.category, guess)
+      // Call AI with timeout
+      const result = await checkGuessWithTimeout(initialSession.category, guess)
 
       if (result.isValid) {
         // Check normalized duplicate
@@ -212,17 +225,18 @@ export function PlayScreen({ initialSession, onEndGame }: PlayScreenProps) {
         setFeedback({ type: "error", message: result.reason || "Invalid" })
       }
     } catch (error) {
-      // Network error - add to queue
-      console.error("Network error, queueing guess:", error)
+      // Network error or timeout - add to queue
+      console.error("Network error/timeout, queueing guess:", error)
       const queuedGuess: QueuedGuess = {
         id: `${Date.now()}-${Math.random()}`,
         guess,
         timestamp: Date.now(),
       }
       setQueuedGuesses((prev) => [...prev, queuedGuess])
+      const isTimeout = error instanceof Error && error.message === "Request timeout"
       setFeedback({
         type: "queued",
-        message: "Queued (no connection)",
+        message: isTimeout ? "Queued (slow connection)" : "Queued (no connection)",
       })
       setIsOnline(false)
     }
