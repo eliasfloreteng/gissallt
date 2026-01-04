@@ -5,7 +5,7 @@ import type React from "react"
 import { useState, useEffect } from "react"
 import { motion } from "framer-motion"
 import { Play, History, Sparkles, ChevronRight, ChevronDown, Infinity } from "lucide-react"
-import { getSuggestions } from "@/app/actions"
+import { getStaticSuggestions, getAISuggestions } from "@/app/actions"
 import type { GameSession } from "./game-manager"
 import { GameDetailsDialog } from "./game-details-dialog"
 
@@ -17,27 +17,27 @@ interface StartScreenProps {
 
 export function StartScreen({ onStart, history, onRetry }: StartScreenProps) {
   const [category, setCategory] = useState("")
-  const [suggestions, setSuggestions] = useState<string[]>([])
-  const [loadingSuggestions, setLoadingSuggestions] = useState(false)
+  const [staticSuggestions] = useState<string[]>(() => getStaticSuggestions(4))
+  const [aiSuggestions, setAiSuggestions] = useState<string[]>([])
+  const [loadingAI, setLoadingAI] = useState(true)
   const [selectedGame, setSelectedGame] = useState<GameSession | null>(null)
   const [dialogOpen, setDialogOpen] = useState(false)
   const [showAllHistory, setShowAllHistory] = useState(false)
 
   useEffect(() => {
     let mounted = true
-    const fetchSuggestions = async () => {
-      setLoadingSuggestions(true)
-      const sugs = await getSuggestions()
+    const fetchAISuggestions = async () => {
+      const aiSugs = await getAISuggestions(staticSuggestions)
       if (mounted) {
-        setSuggestions(sugs)
-        setLoadingSuggestions(false)
+        setAiSuggestions(aiSugs)
+        setLoadingAI(false)
       }
     }
-    fetchSuggestions()
+    fetchAISuggestions()
     return () => {
       mounted = false
     }
-  }, [])
+  }, [staticSuggestions])
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
@@ -122,15 +122,25 @@ export function StartScreen({ onStart, history, onRetry }: StartScreenProps) {
           Popular Categories
         </div>
         <div className="flex flex-wrap gap-3">
-          {loadingSuggestions
-            ? // Skeletons
-              [1, 2, 3, 4].map((i) => (
+          {/* Static categories - show instantly */}
+          {staticSuggestions.map((sug) => (
+            <button
+              key={sug}
+              onClick={() => onStart(sug)}
+              className="px-4 py-2 bg-white border-2 border-gray-200 rounded-xl font-bold text-gray-700 hover:border-brand-pink hover:text-brand-pink hover:scale-105 transition-all shadow-sm"
+            >
+              {sug}
+            </button>
+          ))}
+          {/* AI categories - loading skeletons or loaded */}
+          {loadingAI
+            ? [1, 2, 3, 4].map((i) => (
                 <div
-                  key={i}
+                  key={`skeleton-${i}`}
                   className="h-10 w-24 bg-gray-200 rounded-xl animate-pulse"
                 />
               ))
-            : suggestions.map((sug) => (
+            : aiSuggestions.map((sug) => (
                 <button
                   key={sug}
                   onClick={() => onStart(sug)}

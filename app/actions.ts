@@ -83,7 +83,7 @@ export async function checkGuess(category: string, guess: string) {
   }
 }
 
-const POPULAR_CATEGORIES = [
+export const STATIC_CATEGORIES = [
   // Vehicles
   "Car Brands",
   "Motorcycle Brands",
@@ -106,8 +106,49 @@ const POPULAR_CATEGORIES = [
   "Olympic Sports",
 ]
 
-export async function getSuggestions() {
-  // Shuffle and return a subset of popular categories
-  const shuffled = [...POPULAR_CATEGORIES].sort(() => Math.random() - 0.5)
-  return shuffled.slice(0, 7)
+export function getStaticSuggestions(count: number = 4) {
+  const shuffled = [...STATIC_CATEGORIES].sort(() => Math.random() - 0.5)
+  return shuffled.slice(0, count)
+}
+
+export async function getAISuggestions(
+  excludeCategories: string[] = []
+): Promise<string[]> {
+  const headerList = await headers().catch((e) => {
+    console.error(e)
+    return null
+  })
+  const acceptLanguage = headerList
+    ? headerList.get("Accept-Language") || "en"
+    : "en"
+  const languages = acceptLanguage
+    .split(",")
+    .map((lang) => lang.split(";")[0].trim())
+    .join('", "')
+
+  const excludeList =
+    excludeCategories.length > 0
+      ? `Do NOT include these categories: ${excludeCategories.join(", ")}.`
+      : ""
+
+  const prompt = `Generate 4 fun, diverse, and popular categories for a guessing game where you have to come up with as many items in a specific category as possible. The suggestions can be in any of these languages: "${languages}". ${excludeList} Return just a JSON object with the "categories" key as an array of strings. Do NOT include the language in the category name.`
+
+  try {
+    const { object } = await generateObject({
+      model: openai("gpt-5.1"),
+      schema: z.object({ categories: z.array(z.string()) }),
+      prompt,
+      providerOptions: {
+        openai: {
+          reasoningEffort: "none",
+          reasoningSummary: null,
+          textVerbosity: "low",
+        } satisfies OpenAIResponsesProviderOptions,
+      },
+    })
+    return object.categories
+  } catch (e) {
+    console.error(e)
+    return []
+  }
 }
