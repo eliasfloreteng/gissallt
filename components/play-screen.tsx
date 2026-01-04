@@ -60,12 +60,12 @@ export function PlayScreen({ initialSession, onEndGame, onSessionUpdate, isInfin
 
   // Wrapper to add timeout to API calls
   const checkGuessWithTimeout = useCallback(
-    async (category: string, guess: string) => {
+    async (category: string, guess: string, existingItems: string[]) => {
       const timeoutPromise = new Promise<never>((_, reject) => {
         setTimeout(() => reject(new Error("Request timeout")), REQUEST_TIMEOUT)
       })
 
-      return Promise.race([checkGuess(category, guess), timeoutPromise])
+      return Promise.race([checkGuess(category, guess, existingItems), timeoutPromise])
     },
     [],
   )
@@ -114,14 +114,23 @@ export function PlayScreen({ initialSession, onEndGame, onSessionUpdate, isInfin
     // Process one guess at a time from the queue
     const guessToProcess = queuedGuesses[0]
 
+    // Get current items for duplicate checking
+    const currentAllItems = isInfiniteMode ? [...infiniteItems, ...items] : items
+
     try {
-      const result = await checkGuessWithTimeout(initialSession.category, guessToProcess.guess)
+      const result = await checkGuessWithTimeout(initialSession.category, guessToProcess.guess, currentAllItems)
 
       // Remove from queue
       setQueuedGuesses((prev) => prev.filter((q) => q.id !== guessToProcess.id))
 
-      // Handle result same as regular guess
-      if (result.isValid) {
+      // Handle duplicate detection (no life lost)
+      if (result.isDuplicate) {
+        const duplicateMsg = result.duplicateOf
+          ? `Already listed as "${result.duplicateOf}"!`
+          : "Already listed!"
+        setFeedback({ type: "info", message: `Queued: ${duplicateMsg}` })
+      } else if (result.isValid) {
+        // Handle result same as regular guess
         if (isInfiniteMode) {
           setInfiniteItems((prev) => {
             if (prev.some((item) => item.toLowerCase() === result.normalizedName.toLowerCase())) {
@@ -183,7 +192,7 @@ export function PlayScreen({ initialSession, onEndGame, onSessionUpdate, isInfin
       setIsProcessingQueue(false)
       setIsOnline(false)
     }
-  }, [queuedGuesses, isProcessingQueue, initialSession, onEndGame, checkGuessWithTimeout, isInfiniteMode])
+  }, [queuedGuesses, isProcessingQueue, initialSession, onEndGame, checkGuessWithTimeout, isInfiniteMode, infiniteItems, items])
 
   // Process queue when coming back online
   useEffect(() => {
@@ -256,14 +265,20 @@ export function PlayScreen({ initialSession, onEndGame, onSessionUpdate, isInfin
     setPendingGuesses((prev) => [...prev, pendingGuess])
 
     try {
-      // Call AI with timeout
-      const result = await checkGuessWithTimeout(initialSession.category, guess)
+      // Call AI with timeout, passing existing items for duplicate detection
+      const result = await checkGuessWithTimeout(initialSession.category, guess, allItems)
 
       // Remove from pending
       setPendingGuesses((prev) => prev.filter((p) => p.id !== pendingGuess.id))
 
-      if (result.isValid) {
-        // Check normalized duplicate against all items
+      // Handle duplicate detection (no life lost)
+      if (result.isDuplicate) {
+        const duplicateMsg = result.duplicateOf
+          ? `Already listed as "${result.duplicateOf}"!`
+          : "Already listed!"
+        setFeedback({ type: "info", message: duplicateMsg })
+      } else if (result.isValid) {
+        // Check normalized duplicate against all items (client-side safety check)
         if (allItems.some((item) => item.toLowerCase() === result.normalizedName.toLowerCase())) {
           setFeedback({
             type: "info",

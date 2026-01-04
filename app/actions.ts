@@ -23,9 +23,24 @@ const schema = z.object({
     .describe(
       'Whether the answer is specific enough (e.g., "Car" is too vague for "Car Brands", but "Toyota" is good)'
     ),
+  isDuplicate: z
+    .boolean()
+    .describe(
+      "Whether the guess is a duplicate, misspelling, or differently phrased version of an already guessed item"
+    ),
+  duplicateOf: z
+    .string()
+    .optional()
+    .describe(
+      "If isDuplicate is true, this is the existing item that the guess duplicates"
+    ),
 })
 
-export async function checkGuess(category: string, guess: string) {
+export async function checkGuess(
+  category: string,
+  guess: string,
+  existingItems: string[] = []
+) {
   const headerList = await headers().catch((e) => {
     console.error(e)
     return null
@@ -38,14 +53,20 @@ export async function checkGuess(category: string, guess: string) {
     .map((lang) => lang.split(";")[0].trim())
     .join('", "')
 
+  const existingItemsList =
+    existingItems.length > 0
+      ? `Already Guessed Items: [${existingItems.map((item) => `"${item}"`).join(", ")}].`
+      : ""
+
   try {
     const prompt = `
       Game: Infinite Guesser.
       User Accepted Languages: "${acceptLanguage}".
       Category: "${category}".
       User Guess: "${guess}".
+      ${existingItemsList}
 
-      Task: Determine if the User Guess is a valid member of the Category.
+      Task: Determine if the User Guess is a valid member of the Category, and check if it duplicates any already guessed item.
 
       Rules:
       1. It must be factually correct.
@@ -53,6 +74,12 @@ export async function checkGuess(category: string, guess: string) {
       3. Respond in the same language as the category (preferred) or accepted languages.
       4. Return the "normalizedName" formatted nicely (Title Case) in the same language as the input.
       5. If invalid, provide a short, fun reason in the same language as the category (preferred) or accepted languages.
+      6. Check if the guess is a duplicate of any already guessed item. This includes:
+         - Exact matches (case-insensitive)
+         - Misspellings (e.g., "Toyata" is a duplicate of "Toyota")
+         - Different phrasings or synonyms that refer to the same thing (e.g., "NYC" and "New York City", "VW" and "Volkswagen")
+         - Abbreviations or full forms of existing items
+      7. If isDuplicate is true, set duplicateOf to the matching item from the Already Guessed Items list.
     `
 
     const { object } = await generateObject({
@@ -72,6 +99,8 @@ export async function checkGuess(category: string, guess: string) {
       isValid: object.isValid && object.isSpecificEnough,
       normalizedName: object.normalizedName,
       reason: !object.isSpecificEnough ? "Too vague" : object.reason,
+      isDuplicate: object.isDuplicate,
+      duplicateOf: object.duplicateOf,
     }
   } catch (error) {
     console.error("AI Error:", error)
@@ -79,6 +108,8 @@ export async function checkGuess(category: string, guess: string) {
       isValid: false,
       normalizedName: guess,
       reason: "Could not verify",
+      isDuplicate: false,
+      duplicateOf: undefined,
     }
   }
 }
