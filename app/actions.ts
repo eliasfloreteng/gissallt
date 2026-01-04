@@ -35,9 +35,9 @@ const languageDetectionSchema = z.object({
     .describe("Confidence level from 0 to 1"),
 })
 
-const LANGUAGE_DETECTION_TIMEOUT = 2000 // 2 seconds timeout for language detection
+const LANGUAGE_DETECTION_TIMEOUT = 5000 // 5 seconds timeout for language detection
 
-async function detectLanguage(text: string): Promise<string> {
+export async function detectLanguage(text: string): Promise<string> {
   const supportedLanguages = Object.keys(promptTemplates)
 
   try {
@@ -81,14 +81,12 @@ async function detectLanguage(text: string): Promise<string> {
 export async function checkGuess(
   category: string,
   guess: string,
-  previousItems: string[] = []
+  previousItems: string[] = [],
+  language: string = "en"
 ) {
   try {
-    // Detect the language of the category
-    const detectedLanguage = await detectLanguage(category)
-
-    // Get the appropriate prompt template
-    const template = getPromptTemplate(detectedLanguage)
+    // Get the appropriate prompt template for the detected language
+    const template = getPromptTemplate(language)
 
     // Build the prompt with previous items context
     const prompt = template.buildPrompt({
