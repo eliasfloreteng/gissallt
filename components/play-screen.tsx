@@ -55,7 +55,8 @@ export function PlayScreen({ initialSession, onEndGame, onSessionUpdate, isInfin
 
   // Combine all items for display and duplicate checking
   const allItems = isInfiniteMode ? [...infiniteItems, ...items] : items
-  const currentScore = isInfiniteMode ? infiniteScore : score
+  const totalScore = score + infiniteScore
+  const displayScore = isInfiniteMode ? totalScore : score
 
   // Wrapper to add timeout to API calls
   const checkGuessWithTimeout = useCallback(
@@ -349,9 +350,9 @@ export function PlayScreen({ initialSession, onEndGame, onSessionUpdate, isInfin
         </div>
         <div className="text-right">
           {isInfiniteMode && (
-            <p className="text-xs font-bold text-gray-400 mb-1">+{infiniteScore} bonus</p>
+            <p className="text-xs font-bold text-gray-400 mb-1">{score} + {infiniteScore} infinite</p>
           )}
-          <p className="text-5xl font-black text-brand-pink tabular-nums">{currentScore}</p>
+          <p className="text-5xl font-black text-brand-pink tabular-nums">{displayScore}</p>
         </div>
       </div>
 
