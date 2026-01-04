@@ -83,14 +83,6 @@ export async function checkGuess(
   guess: string,
   previousItems: string[] = []
 ) {
-  const headerList = await headers().catch((e) => {
-    console.error(e)
-    return null
-  })
-  const acceptLanguage = headerList
-    ? headerList.get("Accept-Language") || "en"
-    : "en"
-
   try {
     // Detect the language of the category
     const detectedLanguage = await detectLanguage(category)
@@ -102,7 +94,6 @@ export async function checkGuess(
     const prompt = template.buildPrompt({
       category,
       guess,
-      acceptLanguage,
       previousItems,
     })
 

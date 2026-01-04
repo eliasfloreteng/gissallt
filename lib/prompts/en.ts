@@ -5,12 +5,10 @@ export const englishPromptTemplate = {
   buildPrompt: ({
     category,
     guess,
-    acceptLanguage,
     previousItems,
   }: {
     category: string
     guess: string
-    acceptLanguage: string
     previousItems: string[]
   }) => {
     const previousItemsSection =
@@ -24,7 +22,6 @@ export const englishPromptTemplate = {
 
     return `
       Game: Infinite Guesser.
-      User Accepted Languages: "${acceptLanguage}".
       Category: "${category}".
       User Guess: "${guess}".${previousItemsSection}
 
@@ -33,9 +30,9 @@ export const englishPromptTemplate = {
       Rules:
       1. It must be factually correct.
       2. It must be specific enough (e.g. if category is "Car Brands", "Blue Car" is invalid, "Ford" is valid).
-      3. Respond in the same language as the category (preferred) or accepted languages.
-      4. Return the "normalizedName" formatted nicely (Title Case) in the same language as the input.
-      5. If invalid, provide a short, fun reason in the same language as the category (preferred) or accepted languages.
+      3. All responses must be in English.
+      4. Return the "normalizedName" formatted nicely (Title Case) in English.
+      5. If invalid, provide a short, fun reason in English.
       6. If the guess is essentially a duplicate of a previously accepted item (even with different spelling or phrasing), reject it.
     `
   },

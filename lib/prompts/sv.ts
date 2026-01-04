@@ -5,12 +5,10 @@ export const swedishPromptTemplate = {
   buildPrompt: ({
     category,
     guess,
-    acceptLanguage,
     previousItems,
   }: {
     category: string
     guess: string
-    acceptLanguage: string
     previousItems: string[]
   }) => {
     const previousItemsSection =
@@ -24,7 +22,6 @@ export const swedishPromptTemplate = {
 
     return `
       Spel: Infinite Guesser.
-      Användarens accepterade språk: "${acceptLanguage}".
       Kategori: "${category}".
       Användarens gissning: "${guess}".${previousItemsSection}
 
@@ -33,9 +30,9 @@ export const swedishPromptTemplate = {
       Regler:
       1. Svaret måste vara faktamässigt korrekt.
       2. Svaret måste vara tillräckligt specifikt (t.ex. om kategorin är "Bilmärken", är "Blå Bil" ogiltigt, men "Ford" är giltigt).
-      3. Svara på samma språk som kategorin (föredras) eller accepterade språk.
-      4. Returnera "normalizedName" snyggt formaterat (versaler på första bokstaven) på samma språk som inmatningen.
-      5. Om svaret är ogiltigt, ge en kort och rolig anledning på samma språk som kategorin (föredras) eller accepterade språk.
+      3. Alla svar måste vara på svenska.
+      4. Returnera "normalizedName" snyggt formaterat (versaler på första bokstaven) på svenska.
+      5. Om svaret är ogiltigt, ge en kort och rolig anledning på svenska.
       6. Om gissningen i huvudsak är en dubblett av ett tidigare godkänt svar (även med annan stavning eller formulering), avslå den.
     `
   },
