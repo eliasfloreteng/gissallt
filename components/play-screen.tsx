@@ -4,7 +4,7 @@ import type React from "react"
 
 import { useState, useRef, useEffect, useCallback } from "react"
 import { motion, AnimatePresence } from "framer-motion"
-import { checkGuess } from "@/app/actions"
+import { checkGuess, detectLanguage } from "@/app/actions"
 import { X, Check, Loader2, Flag, Clock, WifiOff } from "lucide-react"
 import type { GameSession } from "./game-manager"
 import { cn } from "@/lib/utils"
@@ -47,6 +47,7 @@ export function PlayScreen({ initialSession, onEndGame, onSessionUpdate, isInfin
   const [pendingGuesses, setPendingGuesses] = useState<PendingGuess[]>([])
   const [isOnline, setIsOnline] = useState(true)
   const [isProcessingQueue, setIsProcessingQueue] = useState(false)
+  const [detectedLanguage, setDetectedLanguage] = useState<string>("en")
   const inputRef = useRef<HTMLInputElement>(null)
 
   const MAX_STRIKES = 5
@@ -58,14 +59,19 @@ export function PlayScreen({ initialSession, onEndGame, onSessionUpdate, isInfin
   const totalScore = score + infiniteScore
   const displayScore = isInfiniteMode ? totalScore : score
 
+  // Detect language once when the game starts
+  useEffect(() => {
+    detectLanguage(initialSession.category).then(setDetectedLanguage)
+  }, [initialSession.category])
+
   // Wrapper to add timeout to API calls
   const checkGuessWithTimeout = useCallback(
-    async (category: string, guess: string, existingItems: string[]) => {
+    async (category: string, guess: string, previousItems: string[], language: string) => {
       const timeoutPromise = new Promise<never>((_, reject) => {
         setTimeout(() => reject(new Error("Request timeout")), REQUEST_TIMEOUT)
       })
 
-      return Promise.race([checkGuess(category, guess, existingItems), timeoutPromise])
+      return Promise.race([checkGuess(category, guess, previousItems, language), timeoutPromise])
     },
     [],
   )
@@ -118,7 +124,7 @@ export function PlayScreen({ initialSession, onEndGame, onSessionUpdate, isInfin
     const currentAllItems = isInfiniteMode ? [...infiniteItems, ...items] : items
 
     try {
-      const result = await checkGuessWithTimeout(initialSession.category, guessToProcess.guess, currentAllItems)
+      const result = await checkGuessWithTimeout(initialSession.category, guessToProcess.guess, currentAllItems, detectedLanguage)
 
       // Remove from queue
       setQueuedGuesses((prev) => prev.filter((q) => q.id !== guessToProcess.id))
@@ -192,7 +198,7 @@ export function PlayScreen({ initialSession, onEndGame, onSessionUpdate, isInfin
       setIsProcessingQueue(false)
       setIsOnline(false)
     }
-  }, [queuedGuesses, isProcessingQueue, initialSession, onEndGame, checkGuessWithTimeout, isInfiniteMode, infiniteItems, items])
+  }, [queuedGuesses, isProcessingQueue, initialSession, onEndGame, checkGuessWithTimeout, isInfiniteMode, infiniteItems, items, detectedLanguage])
 
   // Process queue when coming back online
   useEffect(() => {
@@ -266,7 +272,7 @@ export function PlayScreen({ initialSession, onEndGame, onSessionUpdate, isInfin
 
     try {
       // Call AI with timeout, passing existing items for duplicate detection
-      const result = await checkGuessWithTimeout(initialSession.category, guess, allItems)
+      const result = await checkGuessWithTimeout(initialSession.category, guess, allItems, detectedLanguage)
 
       // Remove from pending
       setPendingGuesses((prev) => prev.filter((p) => p.id !== pendingGuess.id))
@@ -355,11 +361,11 @@ export function PlayScreen({ initialSession, onEndGame, onSessionUpdate, isInfin
     <div className="flex flex-col gap-6 w-full max-w-xl mx-auto">
       {/* Header Stats */}
       <div className="flex justify-between items-end pb-4 border-b-2 border-gray-100">
-        <div>
+        <div className="flex-1">
           <p className="text-sm font-bold text-gray-400 uppercase tracking-wider mb-1">
             {isInfiniteMode ? "Infinite Mode" : "Category"}
           </p>
-          <h2 className="text-3xl md:text-4xl font-black text-brand-blue truncate max-w-[200px] md:max-w-xs">
+          <h2 className="text-3xl md:text-4xl font-black text-brand-blue truncate">
             {initialSession.category}
           </h2>
         </div>

@@ -4,6 +4,7 @@ import { generateObject } from "ai"
 import { z } from "zod"
 import { openai, OpenAIResponsesProviderOptions } from "@ai-sdk/openai"
 import { headers } from "next/headers"
+import { getPromptTemplate, promptTemplates, defaultTemplate } from "@/lib/prompts"
 
 const schema = z.object({
   isValid: z.boolean().describe("Whether the item belongs to the category"),
@@ -36,51 +37,74 @@ const schema = z.object({
     ),
 })
 
+const languageDetectionSchema = z.object({
+  languageCode: z
+    .string()
+    .describe("The ISO 639-1 language code (e.g., 'en', 'sv', 'de', 'fr')"),
+  confidence: z
+    .number()
+    .describe("Confidence level from 0 to 1"),
+})
+
+const LANGUAGE_DETECTION_TIMEOUT = 5000 // 5 seconds timeout for language detection
+
+export async function detectLanguage(text: string): Promise<string> {
+  const supportedLanguages = Object.keys(promptTemplates)
+
+  try {
+    const timeoutPromise = new Promise<never>((_, reject) => {
+      setTimeout(() => reject(new Error("Language detection timeout")), LANGUAGE_DETECTION_TIMEOUT)
+    })
+
+    const detectionPromise = generateObject({
+      model: openai("gpt-5.1"),
+      schema: languageDetectionSchema,
+      prompt: `Detect the language of this text and return the ISO 639-1 language code.
+
+      Text: "${text}"
+
+      Supported languages: ${supportedLanguages.join(", ")}
+
+      If the language is not in the supported list or you're unsure, return "en" (English).`,
+      providerOptions: {
+        openai: {
+          reasoningEffort: "none",
+          reasoningSummary: null,
+          textVerbosity: "low",
+        } satisfies OpenAIResponsesProviderOptions,
+      },
+    })
+
+    const { object } = await Promise.race([detectionPromise, timeoutPromise])
+
+    // Only return the detected language if it's supported and confidence is reasonable
+    if (supportedLanguages.includes(object.languageCode) && object.confidence > 0.5) {
+      return object.languageCode
+    }
+
+    return "en" // Default to English
+  } catch (error) {
+    console.error("Language detection failed:", error)
+    return "en" // Fallback to English on any error
+  }
+}
+
 export async function checkGuess(
   category: string,
   guess: string,
-  existingItems: string[] = []
+  previousItems: string[] = [],
+  language: string = "en"
 ) {
-  const headerList = await headers().catch((e) => {
-    console.error(e)
-    return null
-  })
-  const acceptLanguage = headerList
-    ? headerList.get("Accept-Language") || "en"
-    : "en"
-  const languages = acceptLanguage
-    .split(",")
-    .map((lang) => lang.split(";")[0].trim())
-    .join('", "')
-
-  const existingItemsList =
-    existingItems.length > 0
-      ? `Already Guessed Items: [${existingItems.map((item) => `"${item}"`).join(", ")}].`
-      : ""
-
   try {
-    const prompt = `
-      Game: Infinite Guesser.
-      User Accepted Languages: "${acceptLanguage}".
-      Category: "${category}".
-      User Guess: "${guess}".
-      ${existingItemsList}
+    // Get the appropriate prompt template for the detected language
+    const template = getPromptTemplate(language)
 
-      Task: Determine if the User Guess is a valid member of the Category, and check if it duplicates any already guessed item.
-
-      Rules:
-      1. It must be factually correct.
-      2. It must be specific enough (e.g. if category is "Car Brands", "Blue Car" is invalid, "Ford" is valid).
-      3. Respond in the same language as the category (preferred) or accepted languages.
-      4. Return the "normalizedName" formatted nicely (Title Case) in the same language as the input.
-      5. If invalid, provide a short, fun reason in the same language as the category (preferred) or accepted languages.
-      6. Check if the guess is a duplicate of any already guessed item. This includes:
-         - Exact matches (case-insensitive)
-         - Misspellings (e.g., "Toyata" is a duplicate of "Toyota")
-         - Different phrasings or synonyms that refer to the same thing (e.g., "NYC" and "New York City", "VW" and "Volkswagen")
-         - Abbreviations or full forms of existing items
-      7. If isDuplicate is true, set duplicateOf to the matching item from the Already Guessed Items list.
-    `
+    // Build the prompt with previous items context
+    const prompt = template.buildPrompt({
+      category,
+      guess,
+      previousItems,
+    })
 
     const { object } = await generateObject({
       model: openai("gpt-5.1"),
