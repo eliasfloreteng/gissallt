@@ -24,6 +24,17 @@ const schema = z.object({
     .describe(
       'Whether the answer is specific enough (e.g., "Car" is too vague for "Car Brands", but "Toyota" is good)'
     ),
+  isDuplicate: z
+    .boolean()
+    .describe(
+      "Whether the guess is a duplicate, misspelling, or differently phrased version of an already guessed item"
+    ),
+  duplicateOf: z
+    .string()
+    .optional()
+    .describe(
+      "If isDuplicate is true, this is the existing item that the guess duplicates"
+    ),
 })
 
 const languageDetectionSchema = z.object({
@@ -112,6 +123,8 @@ export async function checkGuess(
       isValid: object.isValid && object.isSpecificEnough,
       normalizedName: object.normalizedName,
       reason: !object.isSpecificEnough ? "Too vague" : object.reason,
+      isDuplicate: object.isDuplicate,
+      duplicateOf: object.duplicateOf,
     }
   } catch (error) {
     console.error("AI Error:", error)
@@ -119,6 +132,8 @@ export async function checkGuess(
       isValid: false,
       normalizedName: guess,
       reason: "Could not verify",
+      isDuplicate: false,
+      duplicateOf: undefined,
     }
   }
 }
