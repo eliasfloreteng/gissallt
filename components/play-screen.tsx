@@ -340,11 +340,11 @@ export function PlayScreen({ initialSession, onEndGame, onSessionUpdate, isInfin
     <div className="flex flex-col gap-6 w-full max-w-xl mx-auto">
       {/* Header Stats */}
       <div className="flex justify-between items-end pb-4 border-b-2 border-gray-100">
-        <div>
+        <div className="flex-1">
           <p className="text-sm font-bold text-gray-400 uppercase tracking-wider mb-1">
             {isInfiniteMode ? "Infinite Mode" : "Category"}
           </p>
-          <h2 className="text-3xl md:text-4xl font-black text-brand-blue truncate max-w-[200px] md:max-w-xs">
+          <h2 className="text-3xl md:text-4xl font-black text-brand-blue truncate">
             {initialSession.category}
           </h2>
         </div>
