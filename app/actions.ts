@@ -83,7 +83,9 @@ export async function checkGuess(category: string, guess: string) {
   }
 }
 
-export async function getSuggestions() {
+export async function getAISuggestions(
+  excludeCategories: string[] = []
+): Promise<string[]> {
   const headerList = await headers().catch((e) => {
     console.error(e)
     return null
@@ -96,7 +98,12 @@ export async function getSuggestions() {
     .map((lang) => lang.split(";")[0].trim())
     .join('", "')
 
-  const prompt = `Generate 7 fun, diverse, and popular categories for a guessing game where you have to come up with as many items in a specific category as possible. The suggestions can be in any of these languages: "${languages}". Return just a JSON object with the "categories" key as an array of strings. Do NOT include the language in the category name.`
+  const excludeList =
+    excludeCategories.length > 0
+      ? `Do NOT include these categories: ${excludeCategories.join(", ")}.`
+      : ""
+
+  const prompt = `Generate 4 fun, diverse, and popular categories for a guessing game where you have to come up with as many items in a specific category as possible. The suggestions can be in any of these languages: "${languages}". ${excludeList} Return just a JSON object with the "categories" key as an array of strings. Do NOT include the language in the category name.`
 
   try {
     const { object } = await generateObject({
@@ -114,12 +121,6 @@ export async function getSuggestions() {
     return object.categories
   } catch (e) {
     console.error(e)
-    return [
-      "Animals",
-      "Car Brands",
-      "Countries",
-      "Fruits",
-      "Harry Potter Characters",
-    ]
+    return []
   }
 }
