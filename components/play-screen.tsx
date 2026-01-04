@@ -13,6 +13,7 @@ interface PlayScreenProps {
   initialSession: GameSession
   onEndGame: (session: GameSession) => void
   onSessionUpdate?: (session: GameSession) => void
+  isInfiniteMode?: boolean
 }
 
 type Feedback = {
@@ -32,10 +33,13 @@ type PendingGuess = {
   timestamp: number
 }
 
-export function PlayScreen({ initialSession, onEndGame, onSessionUpdate }: PlayScreenProps) {
+export function PlayScreen({ initialSession, onEndGame, onSessionUpdate, isInfiniteMode = false }: PlayScreenProps) {
   const [items, setItems] = useState<string[]>(initialSession.items)
   const [strikes, setStrikes] = useState(initialSession.strikes)
   const [score, setScore] = useState(initialSession.score)
+  // Infinite mode state
+  const [infiniteItems, setInfiniteItems] = useState<string[]>(initialSession.infiniteModeItems ?? [])
+  const [infiniteScore, setInfiniteScore] = useState(initialSession.infiniteModeScore ?? 0)
   const [input, setInput] = useState("")
   const [isChecking, setIsChecking] = useState(false)
   const [feedback, setFeedback] = useState<Feedback | null>(null)
@@ -48,6 +52,11 @@ export function PlayScreen({ initialSession, onEndGame, onSessionUpdate }: PlayS
   const MAX_STRIKES = 5
   const QUEUE_STORAGE_KEY = `guess-queue-${initialSession.id}`
   const REQUEST_TIMEOUT = 10000 // 10 seconds timeout
+
+  // Combine all items for display and duplicate checking
+  const allItems = isInfiniteMode ? [...infiniteItems, ...items] : items
+  const totalScore = score + infiniteScore
+  const displayScore = isInfiniteMode ? totalScore : score
 
   // Wrapper to add timeout to API calls
   const checkGuessWithTimeout = useCallback(
@@ -113,35 +122,49 @@ export function PlayScreen({ initialSession, onEndGame, onSessionUpdate }: PlayS
 
       // Handle result same as regular guess
       if (result.isValid) {
-        setItems((prev) => {
-          if (prev.some((item) => item.toLowerCase() === result.normalizedName.toLowerCase())) {
-            return prev
-          }
-          setScore((s) => s + 1)
-          setFeedback({ type: "success", message: `Queued: ${result.normalizedName} +1` })
-          return [result.normalizedName, ...prev]
-        })
+        if (isInfiniteMode) {
+          setInfiniteItems((prev) => {
+            if (prev.some((item) => item.toLowerCase() === result.normalizedName.toLowerCase())) {
+              return prev
+            }
+            setInfiniteScore((s) => s + 1)
+            setFeedback({ type: "success", message: `Queued: ${result.normalizedName} +1` })
+            return [result.normalizedName, ...prev]
+          })
+        } else {
+          setItems((prev) => {
+            if (prev.some((item) => item.toLowerCase() === result.normalizedName.toLowerCase())) {
+              return prev
+            }
+            setScore((s) => s + 1)
+            setFeedback({ type: "success", message: `Queued: ${result.normalizedName} +1` })
+            return [result.normalizedName, ...prev]
+          })
+        }
       } else {
-        setStrikes((prev) => {
-          const newStrikes = prev + 1
-          if (newStrikes >= MAX_STRIKES) {
-            setTimeout(() => {
-              setItems((currentItems) => {
-                setScore((currentScore) => {
-                  onEndGame({
-                    ...initialSession,
-                    items: currentItems,
-                    score: currentScore,
-                    strikes: newStrikes,
+        // In infinite mode, wrong guesses don't count as strikes
+        if (!isInfiniteMode) {
+          setStrikes((prev) => {
+            const newStrikes = prev + 1
+            if (newStrikes >= MAX_STRIKES) {
+              setTimeout(() => {
+                setItems((currentItems) => {
+                  setScore((currentScore) => {
+                    onEndGame({
+                      ...initialSession,
+                      items: currentItems,
+                      score: currentScore,
+                      strikes: newStrikes,
+                    })
+                    return currentScore
                   })
-                  return currentScore
+                  return currentItems
                 })
-                return currentItems
-              })
-            }, 1000)
-          }
-          return newStrikes
-        })
+              }, 1000)
+            }
+            return newStrikes
+          })
+        }
         setFeedback({ type: "error", message: `Queued: ${result.reason || "Invalid"}` })
       }
 
@@ -160,7 +183,7 @@ export function PlayScreen({ initialSession, onEndGame, onSessionUpdate }: PlayS
       setIsProcessingQueue(false)
       setIsOnline(false)
     }
-  }, [queuedGuesses, isProcessingQueue, initialSession, onEndGame, checkGuessWithTimeout])
+  }, [queuedGuesses, isProcessingQueue, initialSession, onEndGame, checkGuessWithTimeout, isInfiniteMode])
 
   // Process queue when coming back online
   useEffect(() => {
@@ -177,11 +200,13 @@ export function PlayScreen({ initialSession, onEndGame, onSessionUpdate }: PlayS
         items,
         score,
         strikes,
+        infiniteModeItems: infiniteItems,
+        infiniteModeScore: infiniteScore,
       }
       onSessionUpdate(updatedSession)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [items, score, strikes])
+  }, [items, score, strikes, infiniteItems, infiniteScore])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -192,8 +217,8 @@ export function PlayScreen({ initialSession, onEndGame, onSessionUpdate }: PlayS
     setIsChecking(true)
     setFeedback(null)
 
-    // Check duplicates locally first
-    if (items.some((item) => item.toLowerCase() === guess.toLowerCase())) {
+    // Check duplicates locally first (against all items in both modes)
+    if (allItems.some((item) => item.toLowerCase() === guess.toLowerCase())) {
       setFeedback({
         type: "info",
         message: "Already listed!",
@@ -238,33 +263,42 @@ export function PlayScreen({ initialSession, onEndGame, onSessionUpdate }: PlayS
       setPendingGuesses((prev) => prev.filter((p) => p.id !== pendingGuess.id))
 
       if (result.isValid) {
-        // Check normalized duplicate
-        if (items.some((item) => item.toLowerCase() === result.normalizedName.toLowerCase())) {
+        // Check normalized duplicate against all items
+        if (allItems.some((item) => item.toLowerCase() === result.normalizedName.toLowerCase())) {
           setFeedback({
             type: "info",
             message: "Already listed!",
           })
         } else {
-          setItems((prev) => [result.normalizedName, ...prev])
-          setScore((prev) => prev + 1)
+          // Add to appropriate list based on mode
+          if (isInfiniteMode) {
+            setInfiniteItems((prev) => [result.normalizedName, ...prev])
+            setInfiniteScore((prev) => prev + 1)
+          } else {
+            setItems((prev) => [result.normalizedName, ...prev])
+            setScore((prev) => prev + 1)
+          }
           setFeedback({ type: "success", message: "+1" })
         }
       } else {
-        setStrikes((prev) => {
-          const newStrikes = prev + 1
-          if (newStrikes >= MAX_STRIKES) {
-            // Delay ending slightly to show the strike
-            setTimeout(() => {
-              onEndGame({
-                ...initialSession,
-                items: [...items], // Include current items
-                score: score, // Include current score
-                strikes: newStrikes,
-              })
-            }, 1000)
-          }
-          return newStrikes
-        })
+        // In infinite mode, wrong guesses don't count as strikes
+        if (!isInfiniteMode) {
+          setStrikes((prev) => {
+            const newStrikes = prev + 1
+            if (newStrikes >= MAX_STRIKES) {
+              // Delay ending slightly to show the strike
+              setTimeout(() => {
+                onEndGame({
+                  ...initialSession,
+                  items: [...items], // Include current items
+                  score: score, // Include current score
+                  strikes: newStrikes,
+                })
+              }, 1000)
+            }
+            return newStrikes
+          })
+        }
         setFeedback({ type: "error", message: result.reason || "Invalid" })
       }
     } catch (error) {
@@ -297,6 +331,8 @@ export function PlayScreen({ initialSession, onEndGame, onSessionUpdate }: PlayS
       items,
       score,
       strikes,
+      infiniteModeItems: infiniteItems,
+      infiniteModeScore: infiniteScore,
     })
   }
 
@@ -305,32 +341,46 @@ export function PlayScreen({ initialSession, onEndGame, onSessionUpdate }: PlayS
       {/* Header Stats */}
       <div className="flex justify-between items-end pb-4 border-b-2 border-gray-100">
         <div>
-          <p className="text-sm font-bold text-gray-400 uppercase tracking-wider mb-1">Category</p>
+          <p className="text-sm font-bold text-gray-400 uppercase tracking-wider mb-1">
+            {isInfiniteMode ? "Infinite Mode" : "Category"}
+          </p>
           <h2 className="text-3xl md:text-4xl font-black text-brand-blue truncate max-w-[200px] md:max-w-xs">
             {initialSession.category}
           </h2>
         </div>
         <div className="text-right">
-          <p className="text-5xl font-black text-brand-pink tabular-nums">{score}</p>
+          {isInfiniteMode && (
+            <p className="text-xs font-bold text-gray-400 mb-1">{score} + {infiniteScore} infinite</p>
+          )}
+          <p className="text-5xl font-black text-brand-pink tabular-nums">{displayScore}</p>
         </div>
       </div>
 
-      {/* Strike Indicator */}
-      <div className="flex justify-center gap-3 py-2">
-        {[...Array(MAX_STRIKES)].map((_, i) => (
-          <motion.div
-            key={i}
-            initial={false}
-            animate={{
-              scale: i < strikes ? 1.2 : 1,
-              color: i < strikes ? "#EF4444" : "#E5E7EB", // red-500 : gray-200
-            }}
-            className="transition-colors"
-          >
-            <X className={cn("w-8 h-8 md:w-10 md:h-10", i < strikes ? "stroke-[4px]" : "stroke-[3px]")} />
-          </motion.div>
-        ))}
-      </div>
+      {/* Strike Indicator or Infinite Mode Badge */}
+      {isInfiniteMode ? (
+        <div className="flex justify-center py-2">
+          <div className="flex items-center gap-2 px-4 py-2 bg-brand-blue/10 rounded-full">
+            <span className="text-2xl font-black text-brand-blue">∞</span>
+            <span className="text-sm font-bold text-brand-blue uppercase tracking-wider">No Lives</span>
+          </div>
+        </div>
+      ) : (
+        <div className="flex justify-center gap-3 py-2">
+          {[...Array(MAX_STRIKES)].map((_, i) => (
+            <motion.div
+              key={i}
+              initial={false}
+              animate={{
+                scale: i < strikes ? 1.2 : 1,
+                color: i < strikes ? "#EF4444" : "#E5E7EB", // red-500 : gray-200
+              }}
+              className="transition-colors"
+            >
+              <X className={cn("w-8 h-8 md:w-10 md:h-10", i < strikes ? "stroke-[4px]" : "stroke-[3px]")} />
+            </motion.div>
+          ))}
+        </div>
+      )}
 
       {/* Input Area */}
       <div className="relative">
@@ -340,7 +390,7 @@ export function PlayScreen({ initialSession, onEndGame, onSessionUpdate }: PlayS
             type="text"
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            disabled={strikes >= MAX_STRIKES}
+            disabled={!isInfiniteMode && strikes >= MAX_STRIKES}
             placeholder="Type something..."
             className="w-full px-6 py-5 text-2xl font-bold bg-white border-3 border-black rounded-2xl shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] focus:outline-hidden focus:translate-y-[2px] focus:shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] focus:border-brand-blue transition-all placeholder:text-gray-300"
             autoFocus
@@ -465,28 +515,36 @@ export function PlayScreen({ initialSession, onEndGame, onSessionUpdate }: PlayS
 
       {/* Validated Items List */}
       <div className="flex-1 min-h-[200px] mt-4">
-        {items.length > 0 && (
+        {allItems.length > 0 && (
           <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">Validated</h3>
         )}
         <div className="flex flex-wrap gap-3 content-start">
           <AnimatePresence initial={false} mode="popLayout">
-            {items.map((item, i) => (
-              <motion.div
-                key={item} // items are unique
-                layout
-                initial={{ scale: 0, opacity: 0 }}
-                animate={{ scale: 1, opacity: 1 }}
-                className="px-4 py-2 bg-white border-2 border-black rounded-xl font-bold shadow-sm flex items-center gap-2"
-                style={{
-                  rotate: i % 2 === 0 ? -1 : 1, // Slight rotation for playful look
-                  zIndex: items.length - i,
-                }}
-              >
-                {item}
-              </motion.div>
-            ))}
+            {allItems.map((item, i) => {
+              const isInfiniteItem = isInfiniteMode && i < infiniteItems.length
+              return (
+                <motion.div
+                  key={item} // items are unique
+                  layout
+                  initial={{ scale: 0, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  className={cn(
+                    "px-4 py-2 border-2 rounded-xl font-bold shadow-sm flex items-center gap-2",
+                    isInfiniteItem
+                      ? "bg-brand-blue/10 border-brand-blue text-brand-blue"
+                      : "bg-white border-black"
+                  )}
+                  style={{
+                    rotate: i % 2 === 0 ? -1 : 1, // Slight rotation for playful look
+                    zIndex: allItems.length - i,
+                  }}
+                >
+                  {item}
+                </motion.div>
+              )
+            })}
           </AnimatePresence>
-          {items.length === 0 && queuedGuesses.length === 0 && pendingGuesses.length === 0 && (
+          {allItems.length === 0 && queuedGuesses.length === 0 && pendingGuesses.length === 0 && (
             <div className="w-full text-center py-10 text-gray-400 font-bold opacity-50">
               List is empty. Start guessing!
             </div>

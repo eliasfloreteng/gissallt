@@ -15,6 +15,10 @@ export type GameSession = {
   score: number
   date: number
   strikes: number
+  // Infinite mode data (after losing all lives)
+  infiniteModeItems?: string[]
+  infiniteModeScore?: number
+  playedInfiniteMode?: boolean
 }
 
 const CURRENT_SESSION_KEY = "infinite-guesser-current-session"
@@ -143,6 +147,20 @@ export function GameManager() {
     startGame(category)
   }
 
+  const continueInfiniteMode = () => {
+    if (currentSession && currentSession.strikes >= 5) {
+      // Mark as infinite mode and continue playing
+      const infiniteSession: GameSession = {
+        ...currentSession,
+        playedInfiniteMode: true,
+        infiniteModeItems: [],
+        infiniteModeScore: 0,
+      }
+      setCurrentSession(infiniteSession)
+      setGameState("playing")
+    }
+  }
+
   return (
     <div className="min-h-screen w-full bg-[#FFFDF5] p-4 md:p-8 flex flex-col items-center justify-center overflow-hidden relative">
       {/* Decorative Background Elements */}
@@ -179,6 +197,7 @@ export function GameManager() {
                 initialSession={currentSession}
                 onEndGame={endGame}
                 onSessionUpdate={setCurrentSession}
+                isInfiniteMode={currentSession.playedInfiniteMode ?? false}
               />
             </motion.div>
           )}
@@ -195,6 +214,7 @@ export function GameManager() {
                 session={currentSession}
                 onHome={restartGame}
                 onRetry={() => retryCategory(currentSession.category)}
+                onContinueInfinite={continueInfiniteMode}
               />
             </motion.div>
           )}
