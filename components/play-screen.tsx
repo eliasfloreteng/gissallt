@@ -4,7 +4,7 @@ import type React from "react"
 
 import { useState, useRef, useEffect, useCallback } from "react"
 import { motion, AnimatePresence } from "framer-motion"
-import { checkGuess } from "@/app/actions"
+import { checkGuess, detectLanguage } from "@/app/actions"
 import { X, Check, Loader2, Flag, Clock, WifiOff } from "lucide-react"
 import type { GameSession } from "./game-manager"
 import { cn } from "@/lib/utils"
@@ -47,6 +47,7 @@ export function PlayScreen({ initialSession, onEndGame, onSessionUpdate, isInfin
   const [pendingGuesses, setPendingGuesses] = useState<PendingGuess[]>([])
   const [isOnline, setIsOnline] = useState(true)
   const [isProcessingQueue, setIsProcessingQueue] = useState(false)
+  const [detectedLanguage, setDetectedLanguage] = useState<string>("en")
   const inputRef = useRef<HTMLInputElement>(null)
 
   const MAX_STRIKES = 5
@@ -58,14 +59,19 @@ export function PlayScreen({ initialSession, onEndGame, onSessionUpdate, isInfin
   const totalScore = score + infiniteScore
   const displayScore = isInfiniteMode ? totalScore : score
 
+  // Detect language once when the game starts
+  useEffect(() => {
+    detectLanguage(initialSession.category).then(setDetectedLanguage)
+  }, [initialSession.category])
+
   // Wrapper to add timeout to API calls
   const checkGuessWithTimeout = useCallback(
-    async (category: string, guess: string) => {
+    async (category: string, guess: string, previousItems: string[], language: string) => {
       const timeoutPromise = new Promise<never>((_, reject) => {
         setTimeout(() => reject(new Error("Request timeout")), REQUEST_TIMEOUT)
       })
 
-      return Promise.race([checkGuess(category, guess), timeoutPromise])
+      return Promise.race([checkGuess(category, guess, previousItems, language), timeoutPromise])
     },
     [],
   )
@@ -115,7 +121,7 @@ export function PlayScreen({ initialSession, onEndGame, onSessionUpdate, isInfin
     const guessToProcess = queuedGuesses[0]
 
     try {
-      const result = await checkGuessWithTimeout(initialSession.category, guessToProcess.guess)
+      const result = await checkGuessWithTimeout(initialSession.category, guessToProcess.guess, allItems, detectedLanguage)
 
       // Remove from queue
       setQueuedGuesses((prev) => prev.filter((q) => q.id !== guessToProcess.id))
@@ -183,7 +189,7 @@ export function PlayScreen({ initialSession, onEndGame, onSessionUpdate, isInfin
       setIsProcessingQueue(false)
       setIsOnline(false)
     }
-  }, [queuedGuesses, isProcessingQueue, initialSession, onEndGame, checkGuessWithTimeout, isInfiniteMode])
+  }, [queuedGuesses, isProcessingQueue, initialSession, onEndGame, checkGuessWithTimeout, isInfiniteMode, allItems, detectedLanguage])
 
   // Process queue when coming back online
   useEffect(() => {
@@ -257,7 +263,7 @@ export function PlayScreen({ initialSession, onEndGame, onSessionUpdate, isInfin
 
     try {
       // Call AI with timeout
-      const result = await checkGuessWithTimeout(initialSession.category, guess)
+      const result = await checkGuessWithTimeout(initialSession.category, guess, allItems, detectedLanguage)
 
       // Remove from pending
       setPendingGuesses((prev) => prev.filter((p) => p.id !== pendingGuess.id))
