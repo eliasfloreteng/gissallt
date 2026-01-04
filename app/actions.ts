@@ -83,43 +83,31 @@ export async function checkGuess(category: string, guess: string) {
   }
 }
 
+const POPULAR_CATEGORIES = [
+  // Vehicles
+  "Car Brands",
+  "Motorcycle Brands",
+  // Geography
+  "Countries",
+  "Capital Cities",
+  "US States",
+  // Entertainment
+  "Disney Movies",
+  "Marvel Superheroes",
+  "Harry Potter Characters",
+  // Food & Drink
+  "Fruits",
+  "Ice Cream Flavors",
+  // Animals
+  "Dog Breeds",
+  "Zoo Animals",
+  // Sports
+  "Football Teams",
+  "Olympic Sports",
+]
+
 export async function getSuggestions() {
-  const headerList = await headers().catch((e) => {
-    console.error(e)
-    return null
-  })
-  const acceptLanguage = headerList
-    ? headerList.get("Accept-Language") || "en"
-    : "en"
-  const languages = acceptLanguage
-    .split(",")
-    .map((lang) => lang.split(";")[0].trim())
-    .join('", "')
-
-  const prompt = `Generate 7 fun, diverse, and popular categories for a guessing game where you have to come up with as many items in a specific category as possible. The suggestions can be in any of these languages: "${languages}". Return just a JSON object with the "categories" key as an array of strings. Do NOT include the language in the category name.`
-
-  try {
-    const { object } = await generateObject({
-      model: openai("gpt-5.1"),
-      schema: z.object({ categories: z.array(z.string()) }),
-      prompt,
-      providerOptions: {
-        openai: {
-          reasoningEffort: "none",
-          reasoningSummary: null,
-          textVerbosity: "low",
-        } satisfies OpenAIResponsesProviderOptions,
-      },
-    })
-    return object.categories
-  } catch (e) {
-    console.error(e)
-    return [
-      "Animals",
-      "Car Brands",
-      "Countries",
-      "Fruits",
-      "Harry Potter Characters",
-    ]
-  }
+  // Shuffle and return a subset of popular categories
+  const shuffled = [...POPULAR_CATEGORIES].sort(() => Math.random() - 0.5)
+  return shuffled.slice(0, 7)
 }
