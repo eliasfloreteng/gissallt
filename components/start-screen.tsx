@@ -5,7 +5,8 @@ import type React from "react"
 import { useState, useEffect } from "react"
 import { motion } from "framer-motion"
 import { Play, History, Sparkles, ChevronRight, ChevronDown, Infinity } from "lucide-react"
-import { getStaticSuggestions, getAISuggestions } from "@/app/actions"
+import { getAISuggestions } from "@/app/actions"
+import { getStaticSuggestions } from "@/lib/categories"
 import type { GameSession } from "./game-manager"
 import { GameDetailsDialog } from "./game-details-dialog"
 
@@ -17,6 +18,7 @@ interface StartScreenProps {
 
 export function StartScreen({ onStart, history, onRetry }: StartScreenProps) {
   const [category, setCategory] = useState("")
+  // Static suggestions are available instantly (no server call)
   const [staticSuggestions] = useState<string[]>(() => getStaticSuggestions(4))
   const [aiSuggestions, setAiSuggestions] = useState<string[]>([])
   const [loadingAI, setLoadingAI] = useState(true)
